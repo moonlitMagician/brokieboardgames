@@ -21,7 +21,7 @@ class MafiaGame {
       }
     };
 
-    this.roleDistribution = this.calculateRoles(lobby.players.length);
+    this.roleDistribution = this.calculateRoles(lobby.players.filter(p => p.connected).length);
   }
 
   calculateRoles(playerCount) {
@@ -55,7 +55,8 @@ class MafiaGame {
   }
 
   assignRoles() {
-    const shuffledPlayers = [...this.lobby.players].sort(() => Math.random() - 0.5);
+    const connectedPlayers = this.lobby.players.filter(p => p.connected);
+    const shuffledPlayers = [...connectedPlayers].sort(() => Math.random() - 0.5);
     let roleIndex = 0;
 
     // Assign Mafia
@@ -99,12 +100,12 @@ class MafiaGame {
   }
 
   setupAlivePlayers() {
-    this.gameData.alivePlayers = [...this.lobby.players];
+    this.gameData.alivePlayers = [...this.lobby.players.filter(p => p.connected)];
   }
 
   getMafiaMembers() {
     return this.lobby.players
-      .filter(p => this.gameData.roles.get(p.id) === 'mafia')
+      .filter(p => p.connected && this.gameData.roles.get(p.id) === 'mafia')
       .map(p => ({ id: p.id, name: p.name }));
   }
 
@@ -340,22 +341,63 @@ class MafiaGame {
     };
   }
 
+  // RECONNECTION METHODS
+  handlePlayerReconnection(oldSocketId, newSocketId, player) {
+    console.log(`Mafia: Player ${player.name} reconnected (${oldSocketId} -> ${newSocketId})`);
+    
+    this.setupPlayerEvents(player);
+    
+    setTimeout(() => {
+      // Resend role and game state
+      this.handleRoleRequest({ emit: (event, data) => this.io.to(newSocketId).emit(event, data) }, player);
+      
+      // Send current phase information
+      this.io.to(newSocketId).emit('mafiaPhaseChange', {
+        phase: this.gameData.phase,
+        dayNumber: this.gameData.dayNumber,
+        timeRemaining: this.gameData.timer,
+        alivePlayers: this.gameData.alivePlayers.map(p => ({ id: p.id, name: p.name })),
+        deadPlayers: this.gameData.deadPlayers.map(p => ({ id: p.id, name: p.name, role: this.gameData.roles.get(p.id) }))
+      });
+      
+      // If voting phase, send voting state
+      if (this.gameData.phase === 'voting') {
+        this.io.to(newSocketId).emit('mafiaPhaseChange', {
+          phase: this.gameData.phase,
+          dayNumber: this.gameData.dayNumber,
+          timeRemaining: this.gameData.timer,
+          alivePlayers: this.gameData.alivePlayers.map(p => ({ id: p.id, name: p.name }))
+        });
+      }
+    }, 1000);
+  }
+
+  setupPlayerEvents(player) {
+    const socket = this.io.sockets.sockets.get(player.id);
+    if (!socket) return;
+
+    // Remove old listeners to prevent duplicates
+    socket.removeAllListeners('requestMafiaRole');
+    socket.removeAllListeners('mafiaAction');
+    socket.removeAllListeners('mafiaVote');
+
+    // Set up fresh listeners
+    socket.on('requestMafiaRole', () => {
+      this.handleRoleRequest(socket, player);
+    });
+
+    socket.on('mafiaAction', (data) => {
+      this.handleNightAction(socket, player, data);
+    });
+
+    socket.on('mafiaVote', (data) => {
+      this.handleVote(socket, player, data);
+    });
+  }
+
   setupGameEvents() {
-    this.lobby.players.forEach(player => {
-      const socket = this.io.sockets.sockets.get(player.id);
-      if (!socket) return;
-
-      socket.on('requestMafiaRole', () => {
-        this.handleRoleRequest(socket, player);
-      });
-
-      socket.on('mafiaAction', (data) => {
-        this.handleNightAction(socket, player, data);
-      });
-
-      socket.on('mafiaVote', (data) => {
-        this.handleVote(socket, player, data);
-      });
+    this.lobby.players.filter(p => p.connected).forEach(player => {
+      this.setupPlayerEvents(player);
     });
   }
 
@@ -454,18 +496,29 @@ class MafiaGame {
 
   handlePlayerDisconnect(playerId) {
     // Remove from alive players if present
-    this.gameData.alivePlayers = this.gameData.alivePlayers.filter(p => p.id !== playerId);
+    const disconnectedPlayer = this.lobby.players.find(p => p.id === playerId);
+    if (!disconnectedPlayer) return;
     
     // Remove any pending actions/votes
     this.gameData.nightActions.delete(playerId);
     this.gameData.votes.delete(playerId);
     
-    // Check if game should continue
-    if (this.gameData.alivePlayers.length < 3) {
-      this.endGame('nobody', 'Too many players disconnected');
-    } else {
-      this.checkWinConditions();
-    }
+    // Don't immediately remove from alive players - wait for potential reconnection
+    // Only remove if they don't reconnect within timeout
+    setTimeout(() => {
+      const player = this.lobby.players.find(p => p.persistentId === disconnectedPlayer.persistentId);
+      if (!player || !player.connected) {
+        // Player didn't reconnect, remove from game
+        this.gameData.alivePlayers = this.gameData.alivePlayers.filter(p => p.id !== playerId);
+        
+        // Check if game should continue
+        if (this.gameData.alivePlayers.length < 3) {
+          this.endGame('nobody', 'Too many players disconnected');
+        } else {
+          this.checkWinConditions();
+        }
+      }
+    }, 30000); // Wait 30 seconds for reconnection
   }
 }
 

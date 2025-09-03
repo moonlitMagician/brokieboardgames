@@ -1578,4 +1578,45 @@
   margin-top: 20px;
 }
 
+/* Connection status in lobby */
+.connected-players, .disconnected-players {
+  margin: 15px 0;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.connected-players {
+  background-color: rgba(46, 204, 113, 0.1);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.disconnected-players {
+  background-color: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.player.connected {
+  background-color: rgba(46, 204, 113, 0.2);
+  border-left: 4px solid #2ecc71;
+}
+
+.player.disconnected {
+  background-color: rgba(231, 76, 60, 0.2);
+  border-left: 4px solid #e74c3c;
+  opacity: 0.7;
+}
+
+.disconnected-note {
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Connection status bar styling */
+.connection-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 }

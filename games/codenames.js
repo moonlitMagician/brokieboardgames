@@ -66,7 +66,8 @@ class CodenamesGame {
   }
 
   assignTeams() {
-    const shuffledPlayers = [...this.lobby.players].sort(() => Math.random() - 0.5);
+    const connectedPlayers = this.lobby.players.filter(p => p.connected);
+    const shuffledPlayers = [...connectedPlayers].sort(() => Math.random() - 0.5);
     
     // Assign players to teams alternately
     shuffledPlayers.forEach((player, index) => {
@@ -128,7 +129,7 @@ class CodenamesGame {
 
   broadcastGameState() {
     // Send different data to spymasters vs operatives
-    this.lobby.players.forEach(player => {
+    this.lobby.players.filter(p => p.connected).forEach(player => {
       const playerTeam = this.getPlayerTeam(player.id);
       const isSpymaster = this.isSpymaster(player.id);
       
@@ -351,26 +352,65 @@ class CodenamesGame {
     });
   }
 
+  // RECONNECTION METHODS
+  handlePlayerReconnection(oldSocketId, newSocketId, player) {
+    console.log(`Codenames: Player ${player.name} reconnected (${oldSocketId} -> ${newSocketId})`);
+    
+    // Update team references
+    ['red', 'blue'].forEach(teamColor => {
+      const team = this.gameData.teams[teamColor];
+      
+      // Update player in team
+      const playerIndex = team.players.findIndex(p => p.id === oldSocketId);
+      if (playerIndex !== -1) {
+        team.players[playerIndex].id = newSocketId;
+      }
+      
+      // Update spymaster reference
+      if (team.spymaster?.id === oldSocketId) {
+        team.spymaster.id = newSocketId;
+      }
+    });
+    
+    this.setupPlayerEvents(player);
+    
+    setTimeout(() => {
+      // Resend current game state
+      this.broadcastGameState();
+    }, 1000);
+  }
+
+  setupPlayerEvents(player) {
+    const socket = this.io.sockets.sockets.get(player.id);
+    if (!socket) return;
+
+    // Remove old listeners to prevent duplicates
+    socket.removeAllListeners('requestCodenamesState');
+    socket.removeAllListeners('codenamesClue');
+    socket.removeAllListeners('codenamesGuess');
+    socket.removeAllListeners('codenamesEndTurn');
+
+    // Set up fresh listeners
+    socket.on('requestCodenamesState', () => {
+      this.broadcastGameState();
+    });
+
+    socket.on('codenamesClue', (data) => {
+      this.handleClue(player, data);
+    });
+
+    socket.on('codenamesGuess', (data) => {
+      this.handleGuess(player, data.wordIndex);
+    });
+
+    socket.on('codenamesEndTurn', () => {
+      this.handleEndTurn(player);
+    });
+  }
+
   setupGameEvents() {
-    this.lobby.players.forEach(player => {
-      const socket = this.io.sockets.sockets.get(player.id);
-      if (!socket) return;
-
-      socket.on('requestCodenamesState', () => {
-        this.broadcastGameState();
-      });
-
-      socket.on('codenamesClue', (data) => {
-        this.handleClue(player, data);
-      });
-
-      socket.on('codenamesGuess', (data) => {
-        this.handleGuess(player, data.wordIndex);
-      });
-
-      socket.on('codenamesEndTurn', () => {
-        this.handleEndTurn(player);
-      });
+    this.lobby.players.filter(p => p.connected).forEach(player => {
+      this.setupPlayerEvents(player);
     });
   }
 
@@ -387,27 +427,36 @@ class CodenamesGame {
   }
 
   handlePlayerDisconnect(playerId) {
-    // Remove from teams
-    this.gameData.teams.red.players = this.gameData.teams.red.players.filter(p => p.id !== playerId);
-    this.gameData.teams.blue.players = this.gameData.teams.blue.players.filter(p => p.id !== playerId);
+    const disconnectedPlayer = this.lobby.players.find(p => p.id === playerId);
+    if (!disconnectedPlayer) return;
     
-    // If a spymaster disconnected, assign new one
-    if (this.gameData.teams.red.spymaster?.id === playerId && this.gameData.teams.red.players.length > 0) {
-      this.gameData.teams.red.spymaster = this.gameData.teams.red.players[0];
-      this.addToHistory(`New RED spymaster: ${this.gameData.teams.red.spymaster.name}`);
-    }
-    
-    if (this.gameData.teams.blue.spymaster?.id === playerId && this.gameData.teams.blue.players.length > 0) {
-      this.gameData.teams.blue.spymaster = this.gameData.teams.blue.players[0];
-      this.addToHistory(`New BLUE spymaster: ${this.gameData.teams.blue.spymaster.name}`);
-    }
-    
-    // End game if not enough players
-    if (this.gameData.teams.red.players.length === 0 || this.gameData.teams.blue.players.length === 0) {
-      this.endGame('nobody', 'insufficient_players');
-    } else {
-      this.broadcastGameState();
-    }
+    // Don't immediately remove from teams - wait for potential reconnection
+    setTimeout(() => {
+      const player = this.lobby.players.find(p => p.persistentId === disconnectedPlayer.persistentId);
+      if (!player || !player.connected) {
+        // Player didn't reconnect, remove from teams
+        ['red', 'blue'].forEach(teamColor => {
+          const team = this.gameData.teams[teamColor];
+          team.players = team.players.filter(p => p.id !== playerId);
+          
+          // If a spymaster disconnected, assign new one
+          if (team.spymaster?.id === playerId && team.players.length > 0) {
+            team.spymaster = team.players[0];
+            this.addToHistory(`New ${teamColor.toUpperCase()} spymaster: ${team.spymaster.name}`);
+          }
+        });
+        
+        // End game if not enough players
+        const totalConnectedPlayers = this.gameData.teams.red.players.length + this.gameData.teams.blue.players.length;
+        if (totalConnectedPlayers < 4 || 
+            this.gameData.teams.red.players.length === 0 || 
+            this.gameData.teams.blue.players.length === 0) {
+          this.endGame('nobody', 'insufficient_players');
+        } else {
+          this.broadcastGameState();
+        }
+      }
+    }, 30000); // Wait 30 seconds for reconnection
   }
 }
 
