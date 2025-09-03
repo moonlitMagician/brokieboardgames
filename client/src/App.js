@@ -27,6 +27,14 @@ const STORAGE_KEYS = {
   LOBBY_DATA: 'party_games_lobby_data'
 };
 
+// Initialize socket outside component to prevent recreation
+const socket = io(SOCKET_URL, {
+  transports: ['websocket', 'polling'],
+  upgrade: true,
+  rememberUpgrade: true,
+  timeout: 20000
+});
+
 function App() {
   const [gameState, setGameState] = useState('menu');
   const [player, setPlayer] = useState(null);
@@ -36,28 +44,9 @@ function App() {
   const [gameData, setGameData] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [reconnectionStatus, setReconnectionStatus] = useState(null);
-  const [socket, setSocket] = useState(null);
-
-  // Initialize socket and handle reconnection
-  const initializeSocket = useCallback(() => {
-    if (socket) {
-      socket.disconnect();
-    }
-
-    const newSocket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      upgrade: true,
-      rememberUpgrade: true,
-      timeout: 20000,
-      forceNew: true
-    });
-
-    setSocket(newSocket);
-    return newSocket;
-  }, [socket]);
 
   // Attempt reconnection
-  const attemptReconnection = useCallback((currentSocket) => {
+  const attemptReconnection = useCallback(() => {
     const persistentId = localStorage.getItem(STORAGE_KEYS.PERSISTENT_ID);
     const playerData = JSON.parse(localStorage.getItem(STORAGE_KEYS.PLAYER_DATA) || '{}');
     const lobbyData = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOBBY_DATA) || '{}');
@@ -66,7 +55,7 @@ function App() {
       console.log('Attempting reconnection...', { persistentId, playerName: playerData.name, lobbyCode: lobbyData.code });
       setReconnectionStatus('attempting');
       
-      currentSocket.emit('attemptReconnection', {
+      socket.emit('attemptReconnection', {
         persistentId,
         playerName: playerData.name
       });
@@ -103,30 +92,28 @@ function App() {
       localStorage.setItem(STORAGE_KEYS.PERSISTENT_ID, persistentId);
     }
 
-    const currentSocket = initializeSocket();
-
     // Connection status listeners
-    currentSocket.on('connect', () => {
-      console.log('Connected to server:', currentSocket.id);
+    const handleConnect = () => {
+      console.log('Connected to server:', socket.id);
       setConnectionStatus('connected');
       
       // Try to reconnect if we have stored data
-      attemptReconnection(currentSocket);
-    });
+      attemptReconnection();
+    };
 
-    currentSocket.on('disconnect', (reason) => {
+    const handleDisconnect = (reason) => {
       console.log('Disconnected from server:', reason);
       setConnectionStatus('disconnected');
       setReconnectionStatus(null);
-    });
+    };
 
-    currentSocket.on('connect_error', (error) => {
+    const handleConnectError = (error) => {
       console.error('Connection error:', error);
       setConnectionStatus('error');
-    });
+    };
 
     // Reconnection listeners
-    currentSocket.on('reconnectionSuccessful', ({ lobbyCode, player, gameState: lobbyGameState, currentGame }) => {
+    const handleReconnectionSuccessful = ({ lobbyCode, player, gameState: lobbyGameState, currentGame }) => {
       console.log('Reconnection successful!', { lobbyCode, player });
       setReconnectionStatus('successful');
       setLobbyCode(lobbyCode);
@@ -135,71 +122,100 @@ function App() {
       setCurrentGame(currentGame);
       
       setTimeout(() => setReconnectionStatus(null), 3000);
-    });
+    };
 
-    currentSocket.on('reconnectionFailed', (reason) => {
+    const handleReconnectionFailed = (reason) => {
       console.log('Reconnection failed:', reason);
       setReconnectionStatus('failed');
       clearStoredData();
       
       setTimeout(() => setReconnectionStatus(null), 5000);
-    });
+    };
 
     // Game event listeners
-    currentSocket.on('lobbyCreated', ({ lobbyCode, player }) => {
+    const handleLobbyCreated = ({ lobbyCode, player }) => {
       console.log('Lobby created - lobbyCode:', lobbyCode, 'player:', player);
       setLobbyCode(lobbyCode);
       setPlayer(player);
       setGameState('lobby');
       savePlayerData(player, lobbyCode);
-    });
+    };
 
-    currentSocket.on('lobbyJoined', ({ lobbyCode, player }) => {
+    const handleLobbyJoined = ({ lobbyCode, player }) => {
       console.log('Lobby joined - lobbyCode:', lobbyCode, 'player:', player);
       setLobbyCode(lobbyCode);
       setPlayer(player);
       setGameState('lobby');
       savePlayerData(player, lobbyCode);
-    });
+    };
 
-    currentSocket.on('playersUpdate', (updatedPlayers) => {
+    const handlePlayersUpdate = (updatedPlayers) => {
       console.log('Players updated:', updatedPlayers);
       setPlayers(updatedPlayers);
-    });
+    };
 
-    currentSocket.on('gameStarted', ({ gameType, gameData }) => {
+    const handleGameStarted = ({ gameType, gameData }) => {
       console.log('Game started:', gameType, gameData);
       setCurrentGame(gameType);
       setGameData(gameData);
       setGameState('playing');
-    });
+    };
 
-    currentSocket.on('playerDisconnected', ({ playerName, message }) => {
+    const handlePlayerDisconnected = ({ playerName, message }) => {
       console.log('Player disconnected:', message);
-      // Could show a toast notification here
-    });
+    };
 
-    currentSocket.on('playerReconnected', ({ playerName, message }) => {
+    const handlePlayerReconnected = ({ playerName, message }) => {
       console.log('Player reconnected:', message);
-      // Could show a toast notification here
-    });
+    };
 
-    currentSocket.on('newHost', ({ newHost, message }) => {
+    const handleNewHost = ({ newHost, message }) => {
       console.log('New host:', message);
-      // Could show a toast notification here
-    });
+    };
 
-    currentSocket.on('error', (message) => {
+    const handleError = (message) => {
       console.error('Socket error:', message);
       alert(message);
-    });
-
-    return () => {
-      if (currentSocket) {
-        currentSocket.disconnect();
-      }
     };
-  }, [initializeSocket, attemptReconnection, clearStoredData, savePlayerData]);
+
+    // Add all event listeners
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('reconnectionSuccessful', handleReconnectionSuccessful);
+    socket.on('reconnectionFailed', handleReconnectionFailed);
+    socket.on('lobbyCreated', handleLobbyCreated);
+    socket.on('lobbyJoined', handleLobbyJoined);
+    socket.on('playersUpdate', handlePlayersUpdate);
+    socket.on('gameStarted', handleGameStarted);
+    socket.on('playerDisconnected', handlePlayerDisconnected);
+    socket.on('playerReconnected', handlePlayerReconnected);
+    socket.on('newHost', handleNewHost);
+    socket.on('error', handleError);
+
+    // Check initial connection status
+    if (socket.connected) {
+      setConnectionStatus('connected');
+      attemptReconnection();
+    }
+
+    // Cleanup function
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('reconnectionSuccessful', handleReconnectionSuccessful);
+      socket.off('reconnectionFailed', handleReconnectionFailed);
+      socket.off('lobbyCreated', handleLobbyCreated);
+      socket.off('lobbyJoined', handleLobbyJoined);
+      socket.off('playersUpdate', handlePlayersUpdate);
+      socket.off('gameStarted', handleGameStarted);
+      socket.off('playerDisconnected', handlePlayerDisconnected);
+      socket.off('playerReconnected', handlePlayerReconnected);
+      socket.off('newHost', handleNewHost);
+      socket.off('error', handleError);
+    };
+  }, [attemptReconnection, clearStoredData, savePlayerData]);
 
   const createLobby = (playerName) => {
     console.log('Creating lobby with player name:', playerName);
@@ -239,7 +255,13 @@ function App() {
 
   const forceReconnect = () => {
     setReconnectionStatus('attempting');
-    attemptReconnection(socket);
+    
+    if (!socket.connected) {
+      // Force reconnect the socket
+      socket.connect();
+    } else {
+      attemptReconnection();
+    }
   };
 
   // Show connection status
@@ -254,7 +276,7 @@ function App() {
       statusText = 'Disconnected from server. Attempting to reconnect...';
     } else if (connectionStatus === 'error') {
       statusColor = '#e74c3c';
-      statusText = 'Connection error. Please refresh the page.';
+      statusText = 'Connection error. Click retry or refresh the page.';
     }
     
     if (reconnectionStatus === 'attempting') {
@@ -284,7 +306,7 @@ function App() {
         alignItems: 'center'
       }}>
         <span>{statusText}</span>
-        {(connectionStatus === 'disconnected' || reconnectionStatus === 'failed') && (
+        {(connectionStatus === 'error' || connectionStatus === 'disconnected' || reconnectionStatus === 'failed') && (
           <button 
             onClick={forceReconnect}
             style={{
@@ -425,6 +447,7 @@ function App() {
             Connection: {connectionStatus}<br/>
             Reconnection: {reconnectionStatus || 'none'}<br/>
             Socket URL: {SOCKET_URL}<br/>
+            Socket Connected: {socket.connected ? 'YES' : 'NO'}<br/>
             State: {gameState}<br/>
             Player: {player?.name}<br/>
             Is Host: {player?.isHost ? 'YES' : 'NO'}<br/>
