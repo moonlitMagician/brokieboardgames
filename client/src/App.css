@@ -2021,18 +2021,54 @@
     font-size: 13px;
   }
   
-  .first-questioner {
-    font-size: 14px;
-    padding: 12px;
-  }
-  
-  .first-questioner strong {
-    font-size: 16px;
-  }
-  
+.first-questioner {
+  background: linear-gradient(135deg, #f1c40f, #f39c12);
+  color: #2c3e50;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 15px 0;
+  text-align: center;
+  font-size: 16px;
+  box-shadow: 0 2px 10px rgba(241, 196, 15, 0.3);
+}
+
+.first-questioner strong {
+  font-size: 18px;
+}
   .early-voting {
-    padding: 15px;
-  }
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24, #e55039);
+  padding: 25px;
+  border-radius: 20px;
+  margin: 25px 0;
+  color: white;
+  box-shadow: 0 8px 32px rgba(238, 90, 36, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.early-voting::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.03) 10px,
+    rgba(255, 255, 255, 0.03) 20px
+  );
+  animation: shimmer 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
   
   .early-vote-button {
     padding: 12px 25px;
