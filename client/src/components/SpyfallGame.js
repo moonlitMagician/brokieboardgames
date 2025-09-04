@@ -10,6 +10,7 @@ function SpyfallGame({ socket, player, players }) {
   const [gameResult, setGameResult] = useState(null);
   const [firstQuestioner, setFirstQuestioner] = useState(null);
   const [voteCount, setVoteCount] = useState({ received: 0, total: 0 });
+  const [hasVotedInVoting, setHasVotedInVoting] = useState(false);
   
   // New state for location checklist and early voting
   const [checkedLocations, setCheckedLocations] = useState(new Set());
@@ -59,6 +60,8 @@ function SpyfallGame({ socket, player, players }) {
       setGamePhase(data.phase);
       setTimeLeft(data.timeRemaining);
       setVoteCount({ received: 0, total: data.players.length });
+      setHasVotedInVoting(false); // Reset voting state
+      setSelectedVote(''); // Clear any previous selection
     });
 
     socket.on('voteUpdate', (data) => {
@@ -94,9 +97,9 @@ function SpyfallGame({ socket, player, players }) {
   }, [socket]);
 
   const handleVote = () => {
-    if (selectedVote && gamePhase === 'voting') {
+    if (selectedVote && gamePhase === 'voting' && !hasVotedInVoting) {
       socket.emit('spyfallVote', { votedPlayerId: selectedVote });
-      setSelectedVote(''); // Disable further voting
+      setHasVotedInVoting(true); // Mark as voted
     }
   };
 
@@ -223,7 +226,7 @@ function SpyfallGame({ socket, player, players }) {
               <p>Votes received: {voteCount.received}/{voteCount.total}</p>
             </div>
             
-            {!selectedVote ? (
+            {!hasVotedInVoting ? (
               <div className="voting-interface">
                 <select 
                   value={selectedVote} 

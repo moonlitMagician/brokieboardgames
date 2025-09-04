@@ -147,7 +147,7 @@ class SpyfallGame {
 
       // Handle voting
       socket.on('spyfallVote', (data) => {
-        this.handleVote(socket, player, data);
+        this.handleVote(player, data);
       });
 
       // Handle spy guess
@@ -208,6 +208,12 @@ class SpyfallGame {
       players: this.lobby.players.map(p => ({ id: p.id, name: p.name }))
     });
 
+    // Send initial vote count
+    this.io.to(this.lobby.code).emit('voteUpdate', {
+      votesReceived: 0,
+      totalPlayers: this.lobby.players.length
+    });
+
     // Start voting timer
     this.timerInterval = setInterval(() => {
       this.gameData.timer--;
@@ -224,13 +230,17 @@ class SpyfallGame {
     }, 1000);
   }
 
-  handleVote(socket, player, data) {
+  handleVote(player, data) {
     if (this.gameData.phase !== 'voting') return;
+    
+    console.log(`Vote received from ${player.name} for ${data.votedPlayerId}`);
     
     this.gameData.votes.set(player.id, data.votedPlayerId);
     
     // Broadcast vote count (without revealing who voted for whom)
     const voteCount = this.gameData.votes.size;
+    console.log(`Total votes: ${voteCount}/${this.lobby.players.length}`);
+    
     this.io.to(this.lobby.code).emit('voteUpdate', {
       votesReceived: voteCount,
       totalPlayers: this.lobby.players.length

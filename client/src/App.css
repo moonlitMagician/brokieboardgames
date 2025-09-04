@@ -1619,4 +1619,62 @@
   align-items: center;
 }
 
+.game-content-wrapper {
+  display: flex;
+  gap: 20px;
+}
+
+.main-game-content {
+  flex: 2;
+}
+
+.location-checklist {
+  flex: 1;
+  background-color: #333;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.locations-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.location-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.location-item span.checked {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.early-voting {
+  background-color: #444;
+  padding: 15px;
+  border-radius: 10px;
+  margin: 15px 0;
+}
+
+.early-vote-button {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.voted-early {
+  color: #2ecc71;
+  font-weight: bold;
+}
+
 }
