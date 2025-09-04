@@ -8,6 +8,7 @@ function SpyfallGame({ socket, player, players }) {
   const [selectedVote, setSelectedVote] = useState('');
   const [locationGuess, setLocationGuess] = useState('');
   const [gameResult, setGameResult] = useState(null);
+  const [firstQuestioner, setFirstQuestioner] = useState(null);
   const [voteCount, setVoteCount] = useState({ received: 0, total: 0 });
   
   // New state for location checklist and early voting
@@ -38,6 +39,7 @@ function SpyfallGame({ socket, player, players }) {
       setRole(roleData);
       setGamePhase(roleData.gamePhase);
       setTimeLeft(roleData.timeRemaining);
+      setFirstQuestioner(roleData.firstQuestioner);
     });
 
     socket.on('spyfallGameStarted', (data) => {
