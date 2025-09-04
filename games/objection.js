@@ -37,7 +37,26 @@ class ObjectionGame {
       "Socks disappear in the dryer to start their own civilization",
       "Mirrors are windows to a parallel universe where everyone is left-handed",
       "Hiccups are attempts by your soul to escape",
-      "Traffic lights are actually mood rings for the city"
+      "Traffic lights are actually mood rings for the city",
+      "The SA goverenment is fully functional",
+      //morally dubious concepts
+      //"Oranje is a perfect place to live",
+      //"Hitler was right",
+      //"9/11 was a inside job",
+      //"The being gay is okay but the rest of the spectrum is wrong",
+      //"There are only 2 genders and 72 mental disorders",
+      //"Obama wasnt a good president",
+      //"Being racist is funny",
+      //"People should beat their kids more",
+      //"Being feminist doesnt give you the right to complain about nothin",
+      //"Being vegan destroys your bodies microbiome",
+      //"The wage gape in sports is only because male athletes are better",
+      //"You shouldnt shower every day",
+      //"You must forcefully imposse your belif on other people",
+      //"The bay of pigs shouldnt get any backlash becuase it worked",
+      //"SLavery was 200 years ago you cannot keep blaming white people"
+      
+      
     ];
 
     this.gameData = {
