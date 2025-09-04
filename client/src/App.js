@@ -429,6 +429,7 @@ function App() {
       <header className="App-header">
         <h1>Brokie Board Games</h1>
         <h3>Created by Daniel Da Silva</h3>
+        <h5>Full Code Avaliable At - "https://github.com/moonlitMagician/brokieboardgames"</h5>
       
         
         {/* Debug info - only show in development */}
