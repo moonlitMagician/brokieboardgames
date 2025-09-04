@@ -9,6 +9,24 @@ function SpyfallGame({ socket, player, players }) {
   const [locationGuess, setLocationGuess] = useState('');
   const [gameResult, setGameResult] = useState(null);
   const [voteCount, setVoteCount] = useState({ received: 0, total: 0 });
+  
+  // New state for location checklist and early voting
+  const [checkedLocations, setCheckedLocations] = useState(new Set());
+  const [earlyVoteCount, setEarlyVoteCount] = useState({ voters: [], total: 0 });
+  const [hasVotedEarly, setHasVotedEarly] = useState(false);
+
+  // Location list for checklist
+  const locations = [
+    'Beach', 'Hospital', 'School', 'Restaurant', 'Bank', 'Airport',
+    'Casino', 'Circus', 'Embassy', 'Hotel', 'Military Base', 'Movie Studio',
+    'Spa', 'Theater', 'University', 'Amusement Park', 'Art Museum', 'Barbershop',
+    'Cathedral', 'Christmas Market', 'Corporate Party', 'Crusader Army',
+    'Day Spa', 'Forest', 'Gas Station', 'Harbor Docks', 'Ice Hockey Stadium',
+    'Jazz Club', 'Library', 'Night Club', 'Ocean Liner', 'Passenger Train',
+    'Polar Station', 'Police Station', 'Racing Circuit', 'Retirement Home',
+    'Rock Concert', 'Service Station', 'Space Station', 'Submarine', 'Supermarket',
+    'Temple', 'Wedding', 'Zoo'
+  ].sort();
 
   useEffect(() => {
     // Request role when component mounts (handles reconnection/late loading)
@@ -55,6 +73,11 @@ function SpyfallGame({ socket, player, players }) {
       setGameResult(result);
     });
 
+    // Early voting events
+    socket.on('earlyVoteUpdate', (data) => {
+      setEarlyVoteCount(data);
+    });
+
     return () => {
       socket.off('roleAssigned');
       socket.off('spyfallGameStarted');
@@ -64,6 +87,7 @@ function SpyfallGame({ socket, player, players }) {
       socket.off('voteUpdate');
       socket.off('spyGuessPhase');
       socket.off('spyfallGameEnded');
+      socket.off('earlyVoteUpdate');
     };
   }, [socket]);
 
@@ -81,10 +105,78 @@ function SpyfallGame({ socket, player, players }) {
     }
   };
 
+  const handleEarlyVote = () => {
+    if (!hasVotedEarly && gamePhase === 'discussion') {
+      socket.emit('voteEarlyEnd');
+      setHasVotedEarly(true);
+    }
+  };
+
+  const handleLocationCheck = (location) => {
+    const newChecked = new Set(checkedLocations);
+    if (newChecked.has(location)) {
+      newChecked.delete(location);
+    } else {
+      newChecked.add(location);
+    }
+    setCheckedLocations(newChecked);
+  };
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const renderLocationChecklist = () => {
+    if (role?.isSpy) return null; // Don't show to spy
+
+    return (
+      <div className="location-checklist">
+        <h4>Location Checklist</h4>
+        <div className="locations-grid">
+          {locations.map((location) => (
+            <label key={location} className="location-item">
+              <input
+                type="checkbox"
+                checked={checkedLocations.has(location)}
+                onChange={() => handleLocationCheck(location)}
+              />
+              <span className={checkedLocations.has(location) ? 'checked' : ''}>
+                {location}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderEarlyVoting = () => {
+    if (gamePhase !== 'discussion') return null;
+
+    return (
+      <div className="early-voting">
+        <div className="early-vote-info">
+          <p>Think you've found the spy? Vote to end discussion early!</p>
+          <p>Votes for early voting: {earlyVoteCount.voters.length}/{earlyVoteCount.total}</p>
+          {earlyVoteCount.voters.length > 0 && (
+            <div className="early-voters">
+              Players who voted: {earlyVoteCount.voters.map(v => v.name).join(', ')}
+            </div>
+          )}
+        </div>
+        {!hasVotedEarly ? (
+          <button onClick={handleEarlyVote} className="early-vote-button">
+            Vote to End Discussion
+          </button>
+        ) : (
+          <div className="voted-early">
+            ✓ You voted to end discussion early
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderGamePhase = () => {
@@ -95,7 +187,15 @@ function SpyfallGame({ socket, player, players }) {
             <div className="phase-header">
               <h3>Discussion Phase</h3>
               <p>Ask questions to find the spy, but don't reveal the location!</p>
+              {firstQuestioner && (
+                <div className="first-questioner">
+                  <strong>{firstQuestioner.name}</strong> will ask the first question
+                  {firstQuestioner.id === player.id && <span className="you-indicator"> (That's you!)</span>}
+                </div>
+              )}
             </div>
+            
+            {renderEarlyVoting()}
             
             {questions.length > 0 && (
               <div className="questions-log">
@@ -232,47 +332,53 @@ function SpyfallGame({ socket, player, players }) {
         <div className="timer">Time: {formatTime(timeLeft)}</div>
       </div>
 
-      <div className="role-info">
-        {role.isSpy ? (
-          <div className="spy-role">
-            <h3>You are the SPY! 🕵️</h3>
-            <p>Try to figure out the location without revealing that you don't know it!</p>
+      <div className="game-content-wrapper">
+        <div className="main-game-content">
+          <div className="role-info">
+            {role.isSpy ? (
+              <div className="spy-role">
+                <h3>You are the SPY! 🕵️</h3>
+                <p>Try to figure out the location without revealing that you don't know it!</p>
+              </div>
+            ) : (
+              <div className="normal-role">
+                <h3>Location: {role.location}</h3>
+                <p>Ask questions to find the spy, but don't be too obvious about the location!</p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="normal-role">
-            <h3>Location: {role.location}</h3>
-            <p>Ask questions to find the spy, but don't be too obvious about the location!</p>
-          </div>
-        )}
-      </div>
 
-      <div className="players-grid">
-        <h3>Players</h3>
-        <div className="players">
-          {players.map((p) => (
-            <div key={p.id} className={`player ${p.id === player.id ? 'you' : ''}`}>
-              {p.name} {p.id === player.id && '(You)'}
+          <div className="players-grid">
+            <h3>Players</h3>
+            <div className="players">
+              {players.map((p) => (
+                <div key={p.id} className={`player ${p.id === player.id ? 'you' : ''}`}>
+                  {p.name} {p.id === player.id && '(You)'}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div className="game-phase-content">
-        {renderGamePhase()}
-      </div>
+          <div className="game-phase-content">
+            {renderGamePhase()}
+          </div>
 
-      {gamePhase === 'discussion' && (
-        <div className="game-instructions">
-          <h4>How to Play:</h4>
-          <ul>
-            <li>Take turns asking each other questions about the location</li>
-            <li>Everyone except the spy knows the location</li>
-            <li>The spy must figure out the location</li>
-            <li>Other players must identify the spy</li>
-            <li>When time runs out, there will be a vote!</li>
-          </ul>
+          {gamePhase === 'discussion' && (
+            <div className="game-instructions">
+              <h4>How to Play:</h4>
+              <ul>
+                <li>Take turns asking each other questions about the location</li>
+                <li>Everyone except the spy knows the location</li>
+                <li>The spy must figure out the location</li>
+                <li>Other players must identify the spy</li>
+                <li>When time runs out, there will be a vote!</li>
+              </ul>
+            </div>
+          )}
         </div>
-      )}
+
+        {gamePhase === 'discussion' && renderLocationChecklist()}
+      </div>
     </div>
   );
 }

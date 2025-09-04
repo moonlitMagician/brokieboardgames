@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import './App.css';
 
@@ -15,218 +15,90 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
   ? window.location.origin
   : 'http://localhost:3001';
 
-// Generate persistent ID for player
-function generatePersistentId() {
-  return Math.random().toString(36).substr(2, 12) + Date.now().toString(36);
-}
-
-// Storage helpers
-const STORAGE_KEYS = {
-  PERSISTENT_ID: 'party_games_persistent_id',
-  PLAYER_DATA: 'party_games_player_data',
-  LOBBY_DATA: 'party_games_lobby_data'
-};
-
-// Initialize socket outside component to prevent recreation
 const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling'],
   upgrade: true,
-  rememberUpgrade: true,
-  timeout: 20000
+  rememberUpgrade: true
 });
 
 function App() {
-  const [gameState, setGameState] = useState('menu');
+  const [gameState, setGameState] = useState('menu'); // menu, lobby, playing
   const [player, setPlayer] = useState(null);
   const [lobbyCode, setLobbyCode] = useState('');
   const [players, setPlayers] = useState([]);
   const [currentGame, setCurrentGame] = useState(null);
   const [gameData, setGameData] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
-  const [reconnectionStatus, setReconnectionStatus] = useState(null);
-
-  // Attempt reconnection
-  const attemptReconnection = useCallback(() => {
-    const persistentId = localStorage.getItem(STORAGE_KEYS.PERSISTENT_ID);
-    const playerData = JSON.parse(localStorage.getItem(STORAGE_KEYS.PLAYER_DATA) || '{}');
-    const lobbyData = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOBBY_DATA) || '{}');
-
-    if (persistentId && playerData.name && lobbyData.code) {
-      console.log('Attempting reconnection...', { persistentId, playerName: playerData.name, lobbyCode: lobbyData.code });
-      setReconnectionStatus('attempting');
-      
-      socket.emit('attemptReconnection', {
-        persistentId,
-        playerName: playerData.name
-      });
-    }
-  }, []);
-
-  // Clear stored data
-  const clearStoredData = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEYS.PLAYER_DATA);
-    localStorage.removeItem(STORAGE_KEYS.LOBBY_DATA);
-    setReconnectionStatus(null);
-  }, []);
-
-  // Save player data to localStorage
-  const savePlayerData = useCallback((playerData, lobbyCode) => {
-    if (playerData) {
-      localStorage.setItem(STORAGE_KEYS.PLAYER_DATA, JSON.stringify({
-        name: playerData.name,
-        isHost: playerData.isHost
-      }));
-    }
-    if (lobbyCode) {
-      localStorage.setItem(STORAGE_KEYS.LOBBY_DATA, JSON.stringify({
-        code: lobbyCode
-      }));
-    }
-  }, []);
 
   useEffect(() => {
-    // Get or create persistent ID
-    let persistentId = localStorage.getItem(STORAGE_KEYS.PERSISTENT_ID);
-    if (!persistentId) {
-      persistentId = generatePersistentId();
-      localStorage.setItem(STORAGE_KEYS.PERSISTENT_ID, persistentId);
-    }
-
     // Connection status listeners
-    const handleConnect = () => {
+    socket.on('connect', () => {
       console.log('Connected to server:', socket.id);
       setConnectionStatus('connected');
-      
-      // Try to reconnect if we have stored data
-      attemptReconnection();
-    };
+    });
 
-    const handleDisconnect = (reason) => {
+    socket.on('disconnect', (reason) => {
       console.log('Disconnected from server:', reason);
       setConnectionStatus('disconnected');
-      setReconnectionStatus(null);
-    };
+    });
 
-    const handleConnectError = (error) => {
+    socket.on('connect_error', (error) => {
       console.error('Connection error:', error);
       setConnectionStatus('error');
-    };
-
-    // Reconnection listeners
-    const handleReconnectionSuccessful = ({ lobbyCode, player, gameState: lobbyGameState, currentGame }) => {
-      console.log('Reconnection successful!', { lobbyCode, player });
-      setReconnectionStatus('successful');
-      setLobbyCode(lobbyCode);
-      setPlayer(player);
-      setGameState(lobbyGameState === 'playing' ? 'playing' : 'lobby');
-      setCurrentGame(currentGame);
-      
-      setTimeout(() => setReconnectionStatus(null), 3000);
-    };
-
-    const handleReconnectionFailed = (reason) => {
-      console.log('Reconnection failed:', reason);
-      setReconnectionStatus('failed');
-      clearStoredData();
-      
-      setTimeout(() => setReconnectionStatus(null), 5000);
-    };
+    });
 
     // Game event listeners
-    const handleLobbyCreated = ({ lobbyCode, player }) => {
+    socket.on('lobbyCreated', ({ lobbyCode, player }) => {
       console.log('Lobby created - lobbyCode:', lobbyCode, 'player:', player);
       setLobbyCode(lobbyCode);
       setPlayer(player);
       setGameState('lobby');
-      savePlayerData(player, lobbyCode);
-    };
+    });
 
-    const handleLobbyJoined = ({ lobbyCode, player }) => {
+    socket.on('lobbyJoined', ({ lobbyCode, player }) => {
       console.log('Lobby joined - lobbyCode:', lobbyCode, 'player:', player);
       setLobbyCode(lobbyCode);
       setPlayer(player);
       setGameState('lobby');
-      savePlayerData(player, lobbyCode);
-    };
+    });
 
-    const handlePlayersUpdate = (updatedPlayers) => {
+    socket.on('playersUpdate', (updatedPlayers) => {
       console.log('Players updated:', updatedPlayers);
       setPlayers(updatedPlayers);
-    };
+    });
 
-    const handleGameStarted = ({ gameType, gameData }) => {
+    socket.on('gameStarted', ({ gameType, gameData }) => {
       console.log('Game started:', gameType, gameData);
       setCurrentGame(gameType);
       setGameData(gameData);
       setGameState('playing');
-    };
+    });
 
-    const handlePlayerDisconnected = ({ playerName, message }) => {
-      console.log('Player disconnected:', message);
-    };
-
-    const handlePlayerReconnected = ({ playerName, message }) => {
-      console.log('Player reconnected:', message);
-    };
-
-    const handleNewHost = ({ newHost, message }) => {
-      console.log('New host:', message);
-    };
-
-    const handleError = (message) => {
+    socket.on('error', (message) => {
       console.error('Socket error:', message);
       alert(message);
-    };
+    });
 
-    // Add all event listeners
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('connect_error', handleConnectError);
-    socket.on('reconnectionSuccessful', handleReconnectionSuccessful);
-    socket.on('reconnectionFailed', handleReconnectionFailed);
-    socket.on('lobbyCreated', handleLobbyCreated);
-    socket.on('lobbyJoined', handleLobbyJoined);
-    socket.on('playersUpdate', handlePlayersUpdate);
-    socket.on('gameStarted', handleGameStarted);
-    socket.on('playerDisconnected', handlePlayerDisconnected);
-    socket.on('playerReconnected', handlePlayerReconnected);
-    socket.on('newHost', handleNewHost);
-    socket.on('error', handleError);
-
-    // Check initial connection status
-    if (socket.connected) {
-      setConnectionStatus('connected');
-      attemptReconnection();
-    }
-
-    // Cleanup function
     return () => {
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('connect_error', handleConnectError);
-      socket.off('reconnectionSuccessful', handleReconnectionSuccessful);
-      socket.off('reconnectionFailed', handleReconnectionFailed);
-      socket.off('lobbyCreated', handleLobbyCreated);
-      socket.off('lobbyJoined', handleLobbyJoined);
-      socket.off('playersUpdate', handlePlayersUpdate);
-      socket.off('gameStarted', handleGameStarted);
-      socket.off('playerDisconnected', handlePlayerDisconnected);
-      socket.off('playerReconnected', handlePlayerReconnected);
-      socket.off('newHost', handleNewHost);
-      socket.off('error', handleError);
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
+      socket.off('lobbyCreated');
+      socket.off('lobbyJoined');
+      socket.off('playersUpdate');
+      socket.off('gameStarted');
+      socket.off('error');
     };
-  }, [attemptReconnection, clearStoredData, savePlayerData]);
+  }, []);
 
   const createLobby = (playerName) => {
     console.log('Creating lobby with player name:', playerName);
-    const persistentId = localStorage.getItem(STORAGE_KEYS.PERSISTENT_ID);
-    socket.emit('createLobby', { playerName, persistentId });
+    socket.emit('createLobby', playerName);
   };
 
   const joinLobby = (lobbyCode, playerName) => {
     console.log('Joining lobby:', lobbyCode, 'with player name:', playerName);
-    const persistentId = localStorage.getItem(STORAGE_KEYS.PERSISTENT_ID);
-    socket.emit('joinLobby', { lobbyCode, playerName, persistentId });
+    socket.emit('joinLobby', { lobbyCode, playerName });
   };
 
   const startGame = (gameType) => {
@@ -250,77 +122,27 @@ function App() {
     setPlayers([]);
     setCurrentGame(null);
     setGameData(null);
-    clearStoredData();
-  };
-
-  const forceReconnect = () => {
-    setReconnectionStatus('attempting');
-    
-    if (!socket.connected) {
-      // Force reconnect the socket
-      socket.connect();
-    } else {
-      attemptReconnection();
-    }
   };
 
   // Show connection status
   const renderConnectionStatus = () => {
-    if (connectionStatus === 'connected' && !reconnectionStatus) return null;
+    if (connectionStatus === 'connected') return null;
     
-    let statusColor = '#f39c12'; // yellow for connecting
-    let statusText = 'Connecting to server...';
-    
-    if (connectionStatus === 'disconnected') {
-      statusColor = '#e74c3c'; // red for disconnected
-      statusText = 'Disconnected from server. Attempting to reconnect...';
-    } else if (connectionStatus === 'error') {
-      statusColor = '#e74c3c';
-      statusText = 'Connection error. Click retry or refresh the page.';
-    }
-    
-    if (reconnectionStatus === 'attempting') {
-      statusColor = '#3498db'; // blue for reconnecting
-      statusText = 'Reconnecting to your game...';
-    } else if (reconnectionStatus === 'successful') {
-      statusColor = '#27ae60'; // green for success
-      statusText = 'Successfully reconnected!';
-    } else if (reconnectionStatus === 'failed') {
-      statusColor = '#e74c3c';
-      statusText = 'Reconnection failed. Session may have expired.';
-    }
-
     return (
       <div style={{
         position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
-        background: statusColor,
+        background: connectionStatus === 'connecting' ? '#f39c12' : '#e74c3c',
         color: 'white',
         padding: '10px',
         textAlign: 'center',
-        zIndex: 9999,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        zIndex: 9999
       }}>
-        <span>{statusText}</span>
-        {(connectionStatus === 'error' || connectionStatus === 'disconnected' || reconnectionStatus === 'failed') && (
-          <button 
-            onClick={forceReconnect}
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              border: '1px solid rgba(255,255,255,0.5)',
-              color: 'white',
-              padding: '5px 10px',
-              borderRadius: '3px',
-              cursor: 'pointer'
-            }}
-          >
-            Retry
-          </button>
-        )}
+        {connectionStatus === 'connecting' && 'Connecting to server...'}
+        {connectionStatus === 'disconnected' && 'Disconnected from server. Trying to reconnect...'}
+        {connectionStatus === 'error' && 'Connection error. Please refresh the page.'}
       </div>
     );
   };
@@ -445,16 +267,12 @@ function App() {
           }}>
             <strong>Debug Info:</strong><br/>
             Connection: {connectionStatus}<br/>
-            Reconnection: {reconnectionStatus || 'none'}<br/>
-            Socket URL: {SOCKET_URL}<br/>
-            Socket Connected: {socket.connected ? 'YES' : 'NO'}<br/>
             State: {gameState}<br/>
             Player: {player?.name}<br/>
             Is Host: {player?.isHost ? 'YES' : 'NO'}<br/>
             Lobby: {lobbyCode}<br/>
             Players: {players.length}<br/>
-            Game: {currentGame || 'None'}<br/>
-            Persistent ID: {localStorage.getItem(STORAGE_KEYS.PERSISTENT_ID)?.substr(-4)}
+            Game: {currentGame || 'None'}
           </div>
         )}
         

@@ -64,10 +64,10 @@ class ObjectionGame {
 
   initializePlayers() {
     // Give everyone 3 lives
-    this.lobby.players.filter(p => p.connected).forEach(player => {
+    this.lobby.players.forEach(player => {
       this.gameData.playerLives.set(player.id, 3);
     });
-    this.gameData.alivePlayers = [...this.lobby.players.filter(p => p.connected)];
+    this.gameData.alivePlayers = [...this.lobby.players];
     
     // Send initial game state
     setTimeout(() => {
@@ -310,59 +310,28 @@ class ObjectionGame {
     this.io.to(this.lobby.code).emit('objectionGameState', gameState);
   }
 
-  // RECONNECTION METHODS
-  handlePlayerReconnection(oldSocketId, newSocketId, player) {
-    console.log(`Objection: Player ${player.name} reconnected (${oldSocketId} -> ${newSocketId})`);
-    
-    this.setupPlayerEvents(player);
-    
-    setTimeout(() => {
-      // Resend current game state
-      this.broadcastGameState();
-      
-      // If player was the current speaker or objector, update accordingly
-      if (this.gameData.currentSpeaker?.id === oldSocketId) {
-        this.gameData.currentSpeaker.id = newSocketId;
-      }
-      if (this.gameData.currentObjector?.id === oldSocketId) {
-        this.gameData.currentObjector.id = newSocketId;
-      }
-    }, 1000);
-  }
-
-  setupPlayerEvents(player) {
-    const socket = this.io.sockets.sockets.get(player.id);
-    if (!socket) return;
-
-    // Remove old listeners to prevent duplicates
-    socket.removeAllListeners('requestObjectionState');
-    socket.removeAllListeners('makeObjection');
-    socket.removeAllListeners('finishObjectionArgument');
-    socket.removeAllListeners('objectionVote');
-
-    // Set up fresh listeners
-    socket.on('requestObjectionState', () => {
-      this.broadcastGameState();
-    });
-
-    socket.on('makeObjection', (data) => {
-      this.handleObjection(player, data.objectionText);
-    });
-
-    socket.on('finishObjectionArgument', () => {
-      if (this.gameData.currentObjector?.id === player.id && this.gameData.phase === 'objection') {
-        this.startVoting();
-      }
-    });
-
-    socket.on('objectionVote', (data) => {
-      this.handleVote(player, data.vote);
-    });
-  }
-
   setupGameEvents() {
-    this.lobby.players.filter(p => p.connected).forEach(player => {
-      this.setupPlayerEvents(player);
+    this.lobby.players.forEach(player => {
+      const socket = this.io.sockets.sockets.get(player.id);
+      if (!socket) return;
+
+      socket.on('requestObjectionState', () => {
+        this.broadcastGameState();
+      });
+
+      socket.on('makeObjection', (data) => {
+        this.handleObjection(player, data.objectionText);
+      });
+
+      socket.on('finishObjectionArgument', () => {
+        if (this.gameData.currentObjector?.id === player.id && this.gameData.phase === 'objection') {
+          this.startVoting();
+        }
+      });
+
+      socket.on('objectionVote', (data) => {
+        this.handleVote(player, data.vote);
+      });
     });
   }
 
@@ -381,38 +350,25 @@ class ObjectionGame {
   }
 
   handlePlayerDisconnect(playerId) {
-    const disconnectedPlayer = this.lobby.players.find(p => p.id === playerId);
-    if (!disconnectedPlayer) return;
+    // Remove from alive players
+    this.gameData.alivePlayers = this.gameData.alivePlayers.filter(p => p.id !== playerId);
+    
+    // If current speaker or objector disconnected, start new round
+    if (this.gameData.currentSpeaker?.id === playerId || this.gameData.currentObjector?.id === playerId) {
+      if (this.gameData.alivePlayers.length > 1) {
+        this.startNewRound();
+      } else {
+        this.endGame();
+      }
+      return;
+    }
     
     // Remove any pending votes
     this.gameData.votes.delete(playerId);
     
-    // If current speaker or objector disconnected, handle appropriately
-    if (this.gameData.currentSpeaker?.id === playerId || this.gameData.currentObjector?.id === playerId) {
-      // Wait for potential reconnection before starting new round
-      setTimeout(() => {
-        const player = this.lobby.players.find(p => p.persistentId === disconnectedPlayer.persistentId);
-        if (!player || !player.connected) {
-          // Player didn't reconnect, start new round or end game
-          if (this.gameData.alivePlayers.filter(p => p.connected).length > 1) {
-            this.startNewRound();
-          } else {
-            this.endGame();
-          }
-        }
-      }, 30000); // Wait 30 seconds for reconnection
-      return;
-    }
-    
     // Check if game should continue
-    const connectedAlivePlayers = this.gameData.alivePlayers.filter(p => p.connected);
-    if (connectedAlivePlayers.length <= 1) {
-      setTimeout(() => {
-        const currentConnected = this.gameData.alivePlayers.filter(p => p.connected);
-        if (currentConnected.length <= 1) {
-          this.endGame();
-        }
-      }, 30000);
+    if (this.gameData.alivePlayers.length <= 1) {
+      this.endGame();
     }
   }
 }

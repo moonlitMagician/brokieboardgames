@@ -4,18 +4,6 @@ class SpyfallGame {
     this.lobby = lobby;
     this.io = io;
     
-    this.locations = [
-      'Beach', 'Hospital', 'School', 'Restaurant', 'Bank', 'Airport',
-      'Casino', 'Circus', 'Embassy', 'Hotel', 'Military Base', 'Movie Studio',
-      'Spa', 'Theater', 'University', 'Amusement Park', 'Art Museum', 'Barbershop',
-      'Cathedral', 'Christmas Market', 'Corporate Party', 'Crusader Army',
-      'Day Spa', 'Forest', 'Gas Station', 'Harbor Docks', 'Ice Hockey Stadium',
-      'Jazz Club', 'Library', 'Night Club', 'Ocean Liner', 'Passenger Train',
-      'Polar Station', 'Police Station', 'Racing Circuit', 'Retirement Home',
-      'Rock Concert', 'Service Station', 'Space Station', 'Submarine', 'Supermarket',
-      'Temple', 'University', 'Wedding', 'Zoo'
-    ];
-    
     this.gameData = {
       location: null,
       spyId: null,
@@ -23,10 +11,13 @@ class SpyfallGame {
       timer: 480, // 8 minutes
       votes: new Map(),
       gameStartTime: Date.now(),
-      questions: []
+      questions: [],
+      earlyVotes: new Set(), // Track players who voted for early end
+      firstQuestioner: null // Random player to start questioning
     };
   }
 
+  // Initialize the game
   startGame() {
     this.selectLocationAndSpy();
     this.assignRoles();
@@ -36,44 +27,49 @@ class SpyfallGame {
   }
 
   selectLocationAndSpy() {
-    const connectedPlayers = this.lobby.players.filter(p => p.connected);
-    
+    const locations = [
+      'Beach', 'Hospital', 'School', 'Restaurant', 'Bank', 'Airport',
+      'Casino', 'Circus', 'Embassy', 'Hotel', 'Military Base', 'Movie Studio',
+      'Spa', 'Theater', 'University', 'Amusement Park', 'Art Museum', 'Barbershop',
+      'Cathedral', 'Christmas Market', 'Corporate Party', 'Crusader Army',
+      'Day Spa', 'Forest', 'Gas Station', 'Harbor Docks', 'Ice Hockey Stadium',
+      'Jazz Club', 'Library', 'Night Club', 'Ocean Liner', 'Passenger Train',
+      'Polar Station', 'Police Station', 'Racing Circuit', 'Retirement Home',
+      'Rock Concert', 'Service Station', 'Space Station', 'Submarine', 'Supermarket',
+      'Temple', 'Wedding', 'Zoo'
+    ];
+
     // Select random location
-    this.gameData.location = this.locations[Math.floor(Math.random() * this.locations.length)];
+    this.gameData.location = locations[Math.floor(Math.random() * locations.length)];
     
     // Select random spy
-    const spyIndex = Math.floor(Math.random() * connectedPlayers.length);
-    this.gameData.spyId = connectedPlayers[spyIndex].id;
+    const spyIndex = Math.floor(Math.random() * this.lobby.players.length);
+    this.gameData.spyId = this.lobby.players[spyIndex].id;
     
-    console.log(`Spyfall Game: Location is "${this.gameData.location}", Spy is "${connectedPlayers[spyIndex].name}"`);
+    // Select random first questioner
+    const questionerIndex = Math.floor(Math.random() * this.lobby.players.length);
+    this.gameData.firstQuestioner = this.lobby.players[questionerIndex];
+    
+    console.log(`Spyfall Game: Location is "${this.gameData.location}", Spy is "${this.lobby.players[spyIndex].name}", First questioner is "${this.gameData.firstQuestioner.name}"`);
   }
 
   assignRoles() {
-    // Send role-specific data to each player immediately and with delay
-    this.lobby.players.filter(p => p.connected).forEach((player) => {
-      const isSpy = player.id === this.gameData.spyId;
-      const roleData = {
-        isSpy,
-        location: isSpy ? null : this.gameData.location,
-        gamePhase: this.gameData.phase,
-        timeRemaining: this.gameData.timer
-      };
-      
-      console.log(`Sending role to ${player.name}:`, roleData);
-      
-      // Send immediately
-      this.io.to(player.id).emit('roleAssigned', roleData);
-      
-      // Also send with delay as backup
-      setTimeout(() => {
+    // Send role-specific data to each player with delay to ensure components are ready
+    setTimeout(() => {
+      this.lobby.players.forEach((player) => {
+        const isSpy = player.id === this.gameData.spyId;
+        const roleData = {
+          isSpy,
+          location: isSpy ? null : this.gameData.location,
+          gamePhase: this.gameData.phase,
+          timeRemaining: this.gameData.timer,
+          firstQuestioner: this.gameData.firstQuestioner
+        };
+        
+        console.log(`Sending role to ${player.name}:`, roleData);
         this.io.to(player.id).emit('roleAssigned', roleData);
-      }, 100);
-      
-      // And another backup for slower connections
-      setTimeout(() => {
-        this.io.to(player.id).emit('roleAssigned', roleData);
-      }, 1000);
-    });
+      });
+    }, 500);
   }
 
   startTimer() {
@@ -95,12 +91,106 @@ class SpyfallGame {
   }
 
   notifyGameStarted() {
-    const connectedPlayers = this.lobby.players.filter(p => p.connected);
     this.io.to(this.lobby.code).emit('spyfallGameStarted', {
       phase: this.gameData.phase,
-      playerCount: connectedPlayers.length,
+      playerCount: this.lobby.players.length,
       timeRemaining: this.gameData.timer
     });
+    
+    // Send initial early vote count
+    this.broadcastEarlyVoteUpdate();
+  }
+
+  broadcastEarlyVoteUpdate() {
+    const earlyVoteData = {
+      voters: Array.from(this.gameData.earlyVotes).map(playerId => {
+        const player = this.lobby.players.find(p => p.id === playerId);
+        return { id: playerId, name: player ? player.name : 'Unknown' };
+      }),
+      total: this.lobby.players.length
+    };
+    
+    this.io.to(this.lobby.code).emit('earlyVoteUpdate', earlyVoteData);
+  }
+
+  handleEarlyVote(player) {
+    if (this.gameData.phase !== 'discussion') return;
+    
+    // Add player to early votes
+    this.gameData.earlyVotes.add(player.id);
+    
+    // Broadcast update
+    this.broadcastEarlyVoteUpdate();
+    
+    // Check if majority wants to end early (more than half)
+    const requiredVotes = Math.floor(this.lobby.players.length / 2) + 1;
+    if (this.gameData.earlyVotes.size >= requiredVotes) {
+      console.log(`Early voting triggered: ${this.gameData.earlyVotes.size}/${this.lobby.players.length} players voted`);
+      this.startVotingPhase();
+    }
+  }
+
+  setupGameEvents() {
+    this.lobby.players.forEach(player => {
+      const socket = this.io.sockets.sockets.get(player.id);
+      if (!socket) return;
+
+      // Handle role requests (for reconnection or late loading)
+      socket.on('requestSpyfallRole', () => {
+        this.handleRoleRequest(socket, player);
+      });
+
+      // Handle questions/discussion
+      socket.on('spyfallQuestion', (data) => {
+        this.handleQuestion(socket, player, data);
+      });
+
+      // Handle voting
+      socket.on('spyfallVote', (data) => {
+        this.handleVote(socket, player, data);
+      });
+
+      // Handle spy guess
+      socket.on('spyGuess', (data) => {
+        this.handleSpyGuess(socket, player, data);
+      });
+
+      // Handle early vote
+      socket.on('voteEarlyEnd', () => {
+        this.handleEarlyVote(player);
+      });
+    });
+  }
+
+  handleRoleRequest(socket, player) {
+    const isSpy = player.id === this.gameData.spyId;
+    const roleData = {
+      isSpy,
+      location: isSpy ? null : this.gameData.location,
+      gamePhase: this.gameData.phase,
+      timeRemaining: this.gameData.timer,
+      firstQuestioner: this.gameData.firstQuestioner
+    };
+    
+    socket.emit('roleAssigned', roleData);
+    
+    // Also send current early vote status
+    this.broadcastEarlyVoteUpdate();
+  }
+
+  handleQuestion(socket, player, data) {
+    const question = {
+      id: Date.now(),
+      from: player.name,
+      to: data.targetPlayer,
+      question: data.question,
+      timestamp: new Date().toISOString()
+    };
+    
+    this.gameData.questions.push(question);
+    
+    // Broadcast question to all players
+    this.io.to(this.lobby.code).emit('spyfallQuestionAsked', question);
   }
 
   startVotingPhase() {
@@ -110,12 +200,12 @@ class SpyfallGame {
     this.gameData.phase = 'voting';
     this.gameData.timer = 60; // 1 minute for voting
     this.gameData.votes.clear();
+    this.gameData.earlyVotes.clear(); // Clear early votes as we're now in voting
     
-    const connectedPlayers = this.lobby.players.filter(p => p.connected);
     this.io.to(this.lobby.code).emit('spyfallVotingStarted', {
       phase: this.gameData.phase,
       timeRemaining: this.gameData.timer,
-      players: connectedPlayers.map(p => ({ id: p.id, name: p.name }))
+      players: this.lobby.players.map(p => ({ id: p.id, name: p.name }))
     });
 
     // Start voting timer
@@ -134,21 +224,6 @@ class SpyfallGame {
     }, 1000);
   }
 
-  handleQuestion(socket, player, data) {
-    const question = {
-      id: Date.now(),
-      from: player.name,
-      to: data.targetPlayer,
-      question: data.question,
-      timestamp: new Date().toISOString()
-    };
-    
-    this.gameData.questions.push(question);
-    
-    // Broadcast question to all players
-    this.io.to(this.lobby.code).emit('spyfallQuestionAsked', question);
-  }
-
   handleVote(socket, player, data) {
     if (this.gameData.phase !== 'voting') return;
     
@@ -156,14 +231,13 @@ class SpyfallGame {
     
     // Broadcast vote count (without revealing who voted for whom)
     const voteCount = this.gameData.votes.size;
-    const connectedPlayers = this.lobby.players.filter(p => p.connected);
     this.io.to(this.lobby.code).emit('voteUpdate', {
       votesReceived: voteCount,
-      totalPlayers: connectedPlayers.length
+      totalPlayers: this.lobby.players.length
     });
     
     // If everyone voted, end voting early
-    if (voteCount === connectedPlayers.length) {
+    if (voteCount === this.lobby.players.length) {
       this.endVoting();
     }
   }
@@ -282,109 +356,6 @@ class SpyfallGame {
     }, 10000); // Show results for 10 seconds
   }
 
-  // RECONNECTION METHODS
-  handlePlayerReconnection(oldSocketId, newSocketId, player) {
-    console.log(`Spyfall: Player ${player.name} reconnected (${oldSocketId} -> ${newSocketId})`);
-    
-    // Update spy reference if necessary
-    if (this.gameData.spyId === oldSocketId) {
-      this.gameData.spyId = newSocketId;
-    }
-    
-    // Set up game event listeners
-    this.setupPlayerEvents(player);
-    
-    // Resend the player's role and current game state
-    setTimeout(() => {
-      const isSpy = player.id === this.gameData.spyId;
-      const roleData = {
-        isSpy,
-        location: isSpy ? null : this.gameData.location,
-        gamePhase: this.gameData.phase,
-        timeRemaining: this.gameData.timer
-      };
-      
-      console.log(`Resending Spyfall role to reconnected player ${player.name}:`, roleData);
-      this.io.to(newSocketId).emit('roleAssigned', roleData);
-      
-      // Send current game state
-      const connectedPlayers = this.lobby.players.filter(p => p.connected);
-      this.io.to(newSocketId).emit('spyfallGameStarted', {
-        phase: this.gameData.phase,
-        playerCount: connectedPlayers.length,
-        timeRemaining: this.gameData.timer
-      });
-      
-      // If voting phase, send voting state
-      if (this.gameData.phase === 'voting') {
-        this.io.to(newSocketId).emit('spyfallVotingStarted', {
-          phase: this.gameData.phase,
-          timeRemaining: this.gameData.timer,
-          players: connectedPlayers.map(p => ({ id: p.id, name: p.name }))
-        });
-      }
-      
-      // If spy guess phase, send spy guess state
-      if (this.gameData.phase === 'spy_guess') {
-        this.io.to(newSocketId).emit('spyGuessPhase', {
-          phase: this.gameData.phase,
-          timeRemaining: this.gameData.timer
-        });
-      }
-    }, 1000);
-  }
-
-  // Add this method to set up event listeners for a specific player
-  setupPlayerEvents(player) {
-    const socket = this.io.sockets.sockets.get(player.id);
-    if (!socket) return;
-
-    // Remove old listeners to prevent duplicates
-    socket.removeAllListeners('requestSpyfallRole');
-    socket.removeAllListeners('spyfallQuestion');
-    socket.removeAllListeners('spyfallVote');
-    socket.removeAllListeners('spyGuess');
-
-    // Set up fresh listeners
-    socket.on('requestSpyfallRole', () => {
-      this.handleRoleRequest(socket, player);
-    });
-
-    socket.on('spyfallQuestion', (data) => {
-      this.handleQuestion(socket, player, data);
-    });
-
-    socket.on('spyfallVote', (data) => {
-      this.handleVote(socket, player, data);
-    });
-
-    socket.on('spyGuess', (data) => {
-      this.handleSpyGuess(socket, player, data);
-    });
-  }
-
-  // Update your existing setupGameEvents method to use the new setupPlayerEvents
-  setupGameEvents() {
-    this.lobby.players.filter(p => p.connected).forEach(player => {
-      this.setupPlayerEvents(player);
-    });
-  }
-
-  handleRoleRequest(socket, player) {
-    console.log(`Role request from ${player.name}`);
-    
-    const isSpy = player.id === this.gameData.spyId;
-    const roleData = {
-      isSpy,
-      location: isSpy ? null : this.gameData.location,
-      gamePhase: this.gameData.phase,
-      timeRemaining: this.gameData.timer
-    };
-    
-    console.log(`Sending requested role to ${player.name}:`, roleData);
-    socket.emit('roleAssigned', roleData);
-  }
-
   cleanup() {
     // Clear timer
     if (this.timerInterval) {
@@ -399,6 +370,7 @@ class SpyfallGame {
         socket.removeAllListeners('spyfallQuestion');
         socket.removeAllListeners('spyfallVote');
         socket.removeAllListeners('spyGuess');
+        socket.removeAllListeners('voteEarlyEnd');
       }
     });
   }
@@ -407,43 +379,23 @@ class SpyfallGame {
   handlePlayerDisconnect(playerId) {
     // Remove votes from disconnected player
     this.gameData.votes.delete(playerId);
+    this.gameData.earlyVotes.delete(playerId);
     
-    // Find the disconnected player
-    const disconnectedPlayer = this.lobby.players.find(p => p.id === playerId);
-    if (!disconnectedPlayer) return;
+    // Update early vote count
+    this.broadcastEarlyVoteUpdate();
     
-    // If the spy disconnected, wait for potential reconnection
+    // If the spy disconnected, end the game
     if (playerId === this.gameData.spyId) {
-      setTimeout(() => {
-        const player = this.lobby.players.find(p => p.persistentId === disconnectedPlayer.persistentId);
-        if (!player || !player.connected) {
-          // Spy didn't reconnect, end the game
-          this.endGame({
-            winner: 'citizens',
-            reason: 'spy_disconnected'
-          });
-        }
-      }, 30000); // Wait 30 seconds for spy to reconnect
+      this.endGame({
+        winner: 'citizens',
+        reason: 'spy_disconnected'
+      });
       return;
     }
     
-    // Check if we should end voting due to not enough connected players
-    const connectedPlayers = this.lobby.players.filter(p => p.connected);
-    if (this.gameData.phase === 'voting' && this.gameData.votes.size === connectedPlayers.length) {
+    // Check if we should end voting due to not enough players
+    if (this.gameData.phase === 'voting' && this.gameData.votes.size === this.lobby.players.length) {
       this.endVoting();
-    }
-    
-    // If too few players remain connected, end the game
-    if (connectedPlayers.length < 3) {
-      setTimeout(() => {
-        const currentConnected = this.lobby.players.filter(p => p.connected);
-        if (currentConnected.length < 3) {
-          this.endGame({
-            winner: 'nobody',
-            reason: 'insufficient_players'
-          });
-        }
-      }, 30000);
     }
   }
 }

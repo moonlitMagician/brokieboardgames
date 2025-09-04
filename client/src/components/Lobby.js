@@ -1,11 +1,6 @@
 import React from 'react';
 
 function Lobby({ lobbyCode, players, player, onStartGame }) {
-  // Debug logging
-  console.log('Lobby props:', { lobbyCode, players, player, onStartGame });
-  console.log('Player isHost:', player?.isHost);
-  console.log('Players array:', players);
-
   const handleGameStart = (gameType) => {
     console.log('Attempting to start game:', gameType);
     if (onStartGame) {
