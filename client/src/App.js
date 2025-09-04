@@ -427,7 +427,9 @@ function App() {
       {renderConnectionStatus()}
       
       <header className="App-header">
-        <h1>Party Games</h1>
+        <h1>Brokie Board Games</h1>
+        <h3>Created by Daniel Da Silva</h3>
+      
         
         {/* Debug info - only show in development */}
         {process.env.NODE_ENV === 'development' && (
