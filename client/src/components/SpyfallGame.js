@@ -134,8 +134,6 @@ function SpyfallGame({ socket, player, players }) {
   };
 
   const renderLocationChecklist = () => {
-    if (role?.isSpy) return null; // Don't show to spy
-
     return (
       <div className="location-checklist">
         <h4>Location Checklist</h4>
