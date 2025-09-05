@@ -151,7 +151,7 @@ function ObjectionGame({ socket, player, players }) {
                 className="toggle-checkbox"
               />
               <span className="toggle-text">
-                Enable controversial/risqué topics
+                Enable controversial/NSFW Topics (CHECK WITH WHOLE LOBBY BEFORE ENABLING)
               </span>
             </label>
           </div>

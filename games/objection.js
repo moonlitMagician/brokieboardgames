@@ -56,18 +56,29 @@ class ObjectionGame {
       "Your reflection is just a stranger who copies you"
     ];
 
-
+    //THESE TOPICS ARE DESIGNED TO BE WRONG AND MORALLY DUBIOUS
+    //the point of this toggle is to make people try to argue topics they would naturally disagree with
+    //reccomended only for people 18+ and these debates SHOULD NOT be taken seriously
     this.risqueTopics = [
       "Cancel culture has gone too far",
-      "Political correctness is destroying free speech",
-      "Social media influencers are a plague on society",
+      "Gay sex is better than straight sex",
+      "eating ass is the ultimate form of love",
+      "Kanye west did no wrong",
+      "Gay marriage is not real marriage",
+      "Suicide should be encouraged over therapy to save money",
+      "Women don't appreciate how good they have it",
+      "Social media influencers should be culled",
       "Religion should be completely abolished",
       "The death penalty should be implimented",
       "Wealthy deserve their money, and have worked hard for it",
       "Parents should beat their kids",
+      "9/11 really was not that bad and Americans are being dramatic",
       "Modern art is pretentious garbage",
       "One sex is inheritly better than the ohter",
-      "There are only two genders, the rest are not valid",
+      "There are only two genders, the rest are mental issues",
+      "Women don't belong in STEM",
+      "Fat-phobia is good for society",
+      "Child abuse builds character",
       "You should wait for marriage before having sex",
       "Oral is overrated",
       "Polyamoury is way better than monogamy",
@@ -78,13 +89,17 @@ class ObjectionGame {
       "Climate change activism is mostly virtue signaling",
       "Standardized testing is educational racism",
       "Social justice movements do more harm than good",
+      "Trump is a great president actually",
       "Capitalism is great for society",
       "Democracy is failing as a system",
-      "Mental health awareness has gone too far",
+      "People struggling with mental health are attention seekers",
       "Cultural appropriation is not a real problem",
       "The nuclear family is an outdated concept",
       "Trigger warnings make people weaker",
-      "Meritocracy is a myth that justifies inequality"
+      "Meritocracy is a myth that justifies inequality",
+      "Men biologically cannot be involved fathers",
+      "Poor people must simply just work harder",
+      "Smoking should be encouraged to kids"
     ];
 
     this.gameData = {
