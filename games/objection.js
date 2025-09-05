@@ -4,8 +4,7 @@ class ObjectionGame {
     this.lobby = lobby;
     this.io = io;
     
-    this.topics = [
-      // Normal topics
+    this.normalTopics = [
       "Pineapple belongs on pizza",
       "Cats are better than dogs",
       "Morning showers are superior to evening showers",
@@ -16,8 +15,6 @@ class ObjectionGame {
       "Working from home is more productive",
       "Breakfast is the most important meal",
       "Physical books are better than e-books",
-      
-      // Weird/Nonsensical topics
       "Socks should be considered a vegetable",
       "Gravity is just a conspiracy by the shoe industry",
       "Penguins are secret government agents",
@@ -38,25 +35,56 @@ class ObjectionGame {
       "Mirrors are windows to a parallel universe where everyone is left-handed",
       "Hiccups are attempts by your soul to escape",
       "Traffic lights are actually mood rings for the city",
-      "The SA goverenment is fully functional",
-      //morally dubious concepts
-      //"Oranje is a perfect place to live",
-      //"Hitler was right",
-      //"9/11 was a inside job",
-      //"The being gay is okay but the rest of the spectrum is wrong",
-      //"There are only 2 genders and 72 mental disorders",
-      //"Obama wasnt a good president",
-      //"Being racist is funny",
-      //"People should beat their kids more",
-      //"Being feminist doesnt give you the right to complain about nothin",
-      //"Being vegan destroys your bodies microbiome",
-      //"The wage gape in sports is only because male athletes are better",
-      //"You shouldnt shower every day",
-      //"You must forcefully imposse your belif on other people",
-      //"The bay of pigs shouldnt get any backlash becuase it worked",
-      //"SLavery was 200 years ago you cannot keep blaming white people"
-      
-      
+      "Ice cream is a breakfast food",
+      "Elevators are just vertical trains",
+      "Shadows are proof the sun is spying on us",
+      "Shoelaces secretly control our thoughts",
+      "Cheese is humanity’s greatest invention",
+      "The ocean is just soup with too much water",
+      "Cereal is actually a type of salad",
+      "Bubbles are nature’s way of laughing",
+      "Chairs were invented to keep humans from floating away",
+      "Sleep is just a free trial for death",
+      "Raindrops are sky tears from laughing too hard",
+      "Sneezes are brain resets",
+      "Cookies taste better when stolen",
+      "Maps are just flat globes pretending to be important",
+      "Waffles are pancakes with abs",
+      "Beards are face scarves",
+      "Time zones are a government prank",
+      "Lamps are trapped suns",
+      "Your reflection is just a stranger who copies you"
+    ];
+
+
+    this.risqueTopics = [
+      "Cancel culture has gone too far",
+      "Political correctness is destroying free speech",
+      "Social media influencers are a plague on society",
+      "Religion should be completely abolished",
+      "The death penalty should be implimented",
+      "Wealthy deserve their money, and have worked hard for it",
+      "Parents should beat their kids",
+      "Modern art is pretentious garbage",
+      "One sex is inheritly better than the ohter",
+      "There are only two genders, the rest are not valid",
+      "You should wait for marriage before having sex",
+      "Oral is overrated",
+      "Polyamoury is way better than monogamy",
+      "Gooning is good for the mind and soul",
+      "Everyone is a little gay",
+      "Participation trophies are ruining children",
+      "Traditional gender roles were better for society",
+      "Climate change activism is mostly virtue signaling",
+      "Standardized testing is educational racism",
+      "Social justice movements do more harm than good",
+      "Capitalism is great for society",
+      "Democracy is failing as a system",
+      "Mental health awareness has gone too far",
+      "Cultural appropriation is not a real problem",
+      "The nuclear family is an outdated concept",
+      "Trigger warnings make people weaker",
+      "Meritocracy is a myth that justifies inequality"
     ];
 
     this.gameData = {
@@ -69,9 +97,11 @@ class ObjectionGame {
       alivePlayers: [],
       eliminatedPlayers: [],
       votes: new Map(), // playerId -> 'sustain' or 'overrule'
-      timer: 0,
+      timer: 120, // 2 minutes for arguing
       gameStartTime: Date.now(),
-      roundHistory: []
+      roundHistory: [],
+      rerollVotes: new Set(),
+      useRisqueTopics: false
     };
   }
 
@@ -99,16 +129,20 @@ class ObjectionGame {
     const randomIndex = Math.floor(Math.random() * this.gameData.alivePlayers.length);
     this.gameData.currentSpeaker = this.gameData.alivePlayers[randomIndex];
     
-    // Pick random topic
-    const topicIndex = Math.floor(Math.random() * this.topics.length);
-    this.gameData.currentTopic = this.topics[topicIndex];
+    // Pick random topic based on settings
+    const topicPool = this.gameData.useRisqueTopics ? 
+      [...this.normalTopics, ...this.risqueTopics] : 
+      this.normalTopics;
+    const topicIndex = Math.floor(Math.random() * topicPool.length);
+    this.gameData.currentTopic = topicPool[topicIndex];
     
     // Set phase and timer
     this.gameData.phase = 'arguing';
-    this.gameData.timer = 300; // 5 minutes to argue (or until objection)
+    this.gameData.timer = 120; // 2 minutes to argue
     this.gameData.currentObjector = null;
     this.gameData.objectionArgument = '';
     this.gameData.votes.clear();
+    this.gameData.rerollVotes.clear();
 
     this.broadcastGameState();
     this.startTimer();
@@ -137,9 +171,8 @@ class ObjectionGame {
   handleTimeout() {
     switch (this.gameData.phase) {
       case 'arguing':
-        // If no objection, speaker "wins" this round, start new round
-        this.addToHistory(`${this.gameData.currentSpeaker.name} argued successfully for "${this.gameData.currentTopic}" with no objections`);
-        this.startNewRound();
+        // Speaker wins the game when time runs out
+        this.endGame(this.gameData.currentSpeaker);
         break;
         
       case 'objection':
@@ -156,7 +189,6 @@ class ObjectionGame {
 
   handleObjection(objectingPlayer, objectionText) {
     if (this.gameData.phase !== 'arguing') return;
-    if (!this.gameData.alivePlayers.find(p => p.id === objectingPlayer.id)) return;
     if (objectingPlayer.id === this.gameData.currentSpeaker.id) return; // Can't object to yourself
     
     this.gameData.phase = 'objection';
@@ -179,8 +211,12 @@ class ObjectionGame {
 
   handleVote(player, vote) {
     if (this.gameData.phase !== 'voting') return;
-    if (!this.gameData.alivePlayers.find(p => p.id === player.id)) return;
     if (vote !== 'sustain' && vote !== 'overrule') return;
+    
+    // Objector cannot vote on their own objection
+    if (this.gameData.currentObjector && player.id === this.gameData.currentObjector.id) {
+      return;
+    }
     
     this.gameData.votes.set(player.id, vote);
     
@@ -188,17 +224,67 @@ class ObjectionGame {
     const sustainVotes = Array.from(this.gameData.votes.values()).filter(v => v === 'sustain').length;
     const overruleVotes = Array.from(this.gameData.votes.values()).filter(v => v === 'overrule').length;
     
+    // Total eligible voters (all players except the objector)
+    const eligibleVoters = this.lobby.players.filter(p => p.id !== this.gameData.currentObjector.id).length;
+    
     this.io.to(this.lobby.code).emit('objectionVoteUpdate', {
-      sustainVotes,
-      overruleVotes,
-      totalVotes: this.gameData.votes.size,
-      totalPlayers: this.gameData.alivePlayers.length
+      sustain: sustainVotes,
+      overrule: overruleVotes,
+      total: this.gameData.votes.size,
+      totalPlayers: eligibleVoters
     });
     
-    // If everyone voted, process immediately
-    if (this.gameData.votes.size === this.gameData.alivePlayers.length) {
+    // If everyone eligible voted, process immediately
+    if (this.gameData.votes.size === eligibleVoters) {
       this.processVotes();
     }
+  }
+
+  handleRerollVote(player) {
+    if (this.gameData.phase !== 'arguing') return;
+    
+    this.gameData.rerollVotes.add(player.id);
+    
+    // Broadcast reroll vote count
+    this.io.to(this.lobby.code).emit('rerollVoteUpdate', {
+      voters: Array.from(this.gameData.rerollVotes).map(playerId => {
+        const p = this.lobby.players.find(player => player.id === playerId);
+        return { id: playerId, name: p ? p.name : 'Unknown' };
+      }),
+      total: this.lobby.players.length
+    });
+    
+    // Check if majority wants to reroll (more than half)
+    const requiredVotes = Math.floor(this.lobby.players.length / 2) + 1;
+    if (this.gameData.rerollVotes.size >= requiredVotes) {
+      console.log(`Topic reroll triggered: ${this.gameData.rerollVotes.size}/${this.lobby.players.length} players voted`);
+      this.rerollTopic();
+    }
+  }
+
+  rerollTopic() {
+    // Pick new random topic
+    const topicPool = this.gameData.useRisqueTopics ? 
+      [...this.normalTopics, ...this.risqueTopics] : 
+      this.normalTopics;
+    const topicIndex = Math.floor(Math.random() * topicPool.length);
+    this.gameData.currentTopic = topicPool[topicIndex];
+    
+    // Reset timer and votes
+    this.gameData.timer = 120;
+    this.gameData.rerollVotes.clear();
+    
+    this.addToHistory(`Topic was rerolled to: "${this.gameData.currentTopic}"`);
+    this.broadcastGameState();
+    this.startTimer();
+  }
+
+  handleTopicToggle(player, useRisque) {
+    // Only host can change this setting
+    if (!player.isHost) return;
+    
+    this.gameData.useRisqueTopics = useRisque;
+    this.broadcastGameState();
   }
 
   processVotes() {
@@ -221,7 +307,7 @@ class ObjectionGame {
       this.gameData.currentSpeaker = this.gameData.currentObjector;
       this.gameData.currentTopic = this.gameData.objectionArgument;
       this.gameData.phase = 'arguing';
-      this.gameData.timer = 300; // 5 minutes for new argument
+      this.gameData.timer = 120; // 2 minutes for new argument
       this.gameData.currentObjector = null;
       this.gameData.objectionArgument = '';
       
@@ -240,17 +326,21 @@ class ObjectionGame {
         this.startNewRound();
       } else {
         // Give objector new topic
-        const topicIndex = Math.floor(Math.random() * this.topics.length);
+        const topicPool = this.gameData.useRisqueTopics ? 
+          this.risqueTopics : 
+          this.normalTopics;
+        const topicIndex = Math.floor(Math.random() * topicPool.length);
         this.gameData.currentSpeaker = this.gameData.currentObjector;
-        this.gameData.currentTopic = this.topics[topicIndex];
+        this.gameData.currentTopic = topicPool[topicIndex];
         this.gameData.phase = 'arguing';
-        this.gameData.timer = 300;
+        this.gameData.timer = 120; // 2 minutes
         this.gameData.currentObjector = null;
         this.gameData.objectionArgument = '';
       }
     }
     
     this.gameData.votes.clear();
+    this.gameData.rerollVotes.clear();
     this.broadcastGameState();
     this.startTimer();
   }
@@ -269,17 +359,19 @@ class ObjectionGame {
 
   checkGameEnd() {
     if (this.gameData.alivePlayers.length <= 1) {
-      this.endGame();
+      if (this.gameData.alivePlayers.length === 1) {
+        this.endGame(this.gameData.alivePlayers[0]);
+      } else {
+        this.endGame(null); // No survivors
+      }
       return true;
     }
     return false;
   }
 
-  endGame() {
+  endGame(winner) {
     clearInterval(this.timerInterval);
     this.gameData.phase = 'finished';
-    
-    const winner = this.gameData.alivePlayers.length === 1 ? this.gameData.alivePlayers[0] : null;
     
     const gameResult = {
       winner,
@@ -323,7 +415,12 @@ class ObjectionGame {
       })),
       alivePlayers: this.gameData.alivePlayers,
       eliminatedPlayers: this.gameData.eliminatedPlayers,
-      history: this.gameData.roundHistory.slice(-5) // Last 5 events
+      history: this.gameData.roundHistory.slice(-5), // Last 5 events
+      useRisqueTopics: this.gameData.useRisqueTopics,
+      rerollVotes: Array.from(this.gameData.rerollVotes).map(playerId => {
+        const p = this.lobby.players.find(player => player.id === playerId);
+        return { id: playerId, name: p ? p.name : 'Unknown' };
+      })
     };
     
     this.io.to(this.lobby.code).emit('objectionGameState', gameState);
@@ -351,6 +448,14 @@ class ObjectionGame {
       socket.on('objectionVote', (data) => {
         this.handleVote(player, data.vote);
       });
+
+      socket.on('rerollVote', () => {
+        this.handleRerollVote(player);
+      });
+
+      socket.on('toggleRisqueTopics', (data) => {
+        this.handleTopicToggle(player, data.useRisque);
+      });
     });
   }
 
@@ -364,6 +469,8 @@ class ObjectionGame {
         socket.removeAllListeners('makeObjection');
         socket.removeAllListeners('finishObjectionArgument');
         socket.removeAllListeners('objectionVote');
+        socket.removeAllListeners('rerollVote');
+        socket.removeAllListeners('toggleRisqueTopics');
       }
     });
   }
@@ -377,17 +484,18 @@ class ObjectionGame {
       if (this.gameData.alivePlayers.length > 1) {
         this.startNewRound();
       } else {
-        this.endGame();
+        this.endGame(this.gameData.alivePlayers[0] || null);
       }
       return;
     }
     
     // Remove any pending votes
     this.gameData.votes.delete(playerId);
+    this.gameData.rerollVotes.delete(playerId);
     
     // Check if game should continue
     if (this.gameData.alivePlayers.length <= 1) {
-      this.endGame();
+      this.endGame(this.gameData.alivePlayers[0] || null);
     }
   }
 }

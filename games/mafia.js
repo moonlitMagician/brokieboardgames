@@ -3,7 +3,7 @@ class MafiaGame {
   constructor(lobby, io) {
     this.lobby = lobby;
     this.io = io;
-    
+    //testing github desktop
     this.gameData = {
       phase: 'night', // night, day, voting, results
       dayNumber: 1,

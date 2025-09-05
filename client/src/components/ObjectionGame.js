@@ -9,6 +9,8 @@ function ObjectionGame({ socket, player, players }) {
   const [voteSubmitted, setVoteSubmitted] = useState(false);
   const [voteCount, setVoteCount] = useState({ sustain: 0, overrule: 0, total: 0, totalPlayers: 0 });
   const [gameResult, setGameResult] = useState(null);
+  const [rerollVoteCount, setRerollVoteCount] = useState({ voters: [], total: 0 });
+  const [hasVotedReroll, setHasVotedReroll] = useState(false);
   const [buzzSound] = useState(new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+H1xW8gBSuAzvLZiTYIF2m98OScTgwOUarm7K9oGwY7k9n1unEiBC59yO/eizEJGHq+8OGNOR8GXrHk7aBnIgU5ltf1w3ksBSyH0/PdrEEKGXm+8N2QMgcUZLHl9KBABRZQp+PwtmMcBjiR1/LNdSgFGXq+8N2QMgcTY7Jm9KFBBhJBnuDzv3EhBz2E0/LZiTcIGWq+8N+TOAoG'));
 
   useEffect(() => {
@@ -23,6 +25,11 @@ function ObjectionGame({ socket, player, players }) {
       setShowObjectionInput(false);
       setVoteSubmitted(false);
       setSelectedVote('');
+      setHasVotedReroll(state.rerollVotes?.some(v => v.id === player.id) || false);
+      setRerollVoteCount({
+        voters: state.rerollVotes || [],
+        total: state.playerLives?.length || 0
+      });
     });
 
     socket.on('objectionTimerUpdate', (data) => {
@@ -33,8 +40,11 @@ function ObjectionGame({ socket, player, players }) {
       setVoteCount(data);
     });
 
+    socket.on('rerollVoteUpdate', (data) => {
+      setRerollVoteCount(data);
+    });
+
     socket.on('playerEliminated', (data) => {
-      // Could show a notification here
       console.log(`${data.eliminated.name} was eliminated!`);
     });
 
@@ -46,10 +56,11 @@ function ObjectionGame({ socket, player, players }) {
       socket.off('objectionGameState');
       socket.off('objectionTimerUpdate');
       socket.off('objectionVoteUpdate');
+      socket.off('rerollVoteUpdate');
       socket.off('playerEliminated');
       socket.off('objectionGameEnded');
     };
-  }, [socket]);
+  }, [socket, player.id]);
 
   const handleObjection = () => {
     if (!objectionText.trim()) {
@@ -73,14 +84,21 @@ function ObjectionGame({ socket, player, players }) {
     setVoteSubmitted(true);
   };
 
+  const handleRerollVote = () => {
+    if (!hasVotedReroll) {
+      socket.emit('rerollVote');
+      setHasVotedReroll(true);
+    }
+  };
+
+  const handleTopicToggle = (useRisque) => {
+    socket.emit('toggleRisqueTopics', { useRisque });
+  };
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const isPlayerAlive = (playerId) => {
-    return gameState?.alivePlayers?.some(p => p.id === playerId);
   };
 
   const getPlayerLives = (playerId) => {
@@ -89,8 +107,57 @@ function ObjectionGame({ socket, player, players }) {
 
   const canObject = () => {
     return gameState?.phase === 'arguing' && 
-           isPlayerAlive(player.id) && 
            gameState.currentSpeaker?.id !== player.id;
+  };
+
+  const canVote = () => {
+    return gameState?.phase === 'voting' && 
+           gameState.currentObjector?.id !== player.id; // Objector cannot vote
+  };
+
+  const renderTopicControls = () => {
+    if (gameState?.phase !== 'arguing') return null;
+
+    return (
+      <div className="topic-controls">
+        <div className="reroll-section">
+          <div className="reroll-info">
+            <p>Don't like this topic? Vote to reroll!</p>
+            <p>Reroll votes: {rerollVoteCount.voters.length}/{rerollVoteCount.total}</p>
+            {rerollVoteCount.voters.length > 0 && (
+              <div className="reroll-voters">
+                Players who voted: {rerollVoteCount.voters.map(v => v.name).join(', ')}
+              </div>
+            )}
+          </div>
+          {!hasVotedReroll ? (
+            <button onClick={handleRerollVote} className="reroll-button">
+              🎲 Vote to Reroll Topic
+            </button>
+          ) : (
+            <div className="voted-reroll">
+              ✓ You voted to reroll the topic
+            </div>
+          )}
+        </div>
+
+        {player.isHost && (
+          <div className="risque-toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={gameState?.useRisqueTopics || false}
+                onChange={(e) => handleTopicToggle(e.target.checked)}
+                className="toggle-checkbox"
+              />
+              <span className="toggle-text">
+                Enable controversial/risqué topics
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderPhaseContent = () => {
@@ -112,9 +179,16 @@ function ObjectionGame({ socket, player, players }) {
                 </div>
                 <div className="phase-instruction">
                   {gameState.currentSpeaker?.id === player.id ? 
-                    "Make your argument! Others can object at any time." :
+                    "Make your argument! You have 2 minutes. If nobody objects, you win!" :
                     "Listen to the argument. Click 'Objection!' if you disagree."
                   }
+                </div>
+                <div className="time-warning">
+                  {timeLeft <= 30 && timeLeft > 0 && (
+                    <div className="urgent-timer">
+                      ⚠️ {timeLeft} seconds remaining! Speaker wins if time runs out!
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -148,6 +222,8 @@ function ObjectionGame({ socket, player, players }) {
                 </div>
               )}
             </div>
+
+            {renderTopicControls()}
           </div>
         );
 
@@ -193,6 +269,11 @@ function ObjectionGame({ socket, player, players }) {
               <div className="vote-question">
                 Should <strong>{gameState.currentObjector?.name}</strong>'s objection be sustained?
               </div>
+              {gameState.currentObjector?.id === player.id && (
+                <div className="objector-cannot-vote">
+                  You cannot vote on your own objection
+                </div>
+              )}
             </div>
 
             <div className="voting-context">
@@ -200,7 +281,7 @@ function ObjectionGame({ socket, player, players }) {
               <div><strong>Objection:</strong> "{gameState.objectionArgument}"</div>
             </div>
 
-            {!voteSubmitted && isPlayerAlive(player.id) ? (
+            {canVote() && !voteSubmitted ? (
               <div className="voting-buttons">
                 <button 
                   onClick={() => handleVote('sustain')}
@@ -222,7 +303,7 @@ function ObjectionGame({ socket, player, players }) {
                 {voteSubmitted ? (
                   <p>✓ Vote submitted! Waiting for others...</p>
                 ) : (
-                  <p>You cannot vote (eliminated)</p>
+                  <p>You cannot vote on this objection</p>
                 )}
               </div>
             )}
