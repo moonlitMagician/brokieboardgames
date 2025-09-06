@@ -83,15 +83,15 @@ class ObjectionGame {
       "Everyone is a little gay",
       "Participation trophies are ruining children",
       "Traditional gender roles were better for society",
-      "Climate change activism is mostly virtue signaling",
+      "Being a zionist is not that bad",
       "Standardized testing is educational racism",
       "Social justice movements do more harm than good",
+      "Media has gone too woke",
       "Trump is a great president actually",
       "Capitalism is great for society",
       "Democracy is failing as a system",
       "People struggling with mental health are attention seekers",
       "Cultural appropriation is not a real problem",
-      "The nuclear family is an outdated concept",
       "Trigger warnings make people weaker",
       "Meritocracy is a myth that justifies inequality",
       "Men biologically cannot be involved fathers",
@@ -180,25 +180,36 @@ class ObjectionGame {
     }, 1000);
   }
 
-  handleTimeout() {
-    switch (this.gameData.phase) {
-      case 'arguing':
-        // Speaker wins the game when time runs out
-        this.addToHistory(`${this.gameData.currentSpeaker.name} wins by successfully arguing for 2 minutes without objection!`);
-        this.endGame(this.gameData.currentSpeaker);
-        break;
-        
-      case 'objection':
-        // Objector ran out of time, auto-overrule
-        this.handleObjectionVerdict('overrule');
-        break;
-        
-      case 'voting':
-        // Voting time up, count existing votes
-        this.processVotes();
-        break;
-    }
+handleTimeout() {
+  clearInterval(this.timerInterval); // Stop the timer immediately
+  
+  switch (this.gameData.phase) {
+    case 'arguing':
+      // Speaker wins the game when time runs out
+      this.addToHistory(`${this.gameData.currentSpeaker.name} wins by successfully arguing for 2 minutes without objection!`);
+      
+      // Update game state to finished BEFORE calling endGame
+      this.gameData.phase = 'finished';
+      this.gameData.timer = 0;
+      
+      // Broadcast the updated state immediately
+      this.broadcastGameState();
+      
+      // Then end the game
+      this.endGame(this.gameData.currentSpeaker);
+      break;
+      
+    case 'objection':
+      // Objector ran out of time, auto-overrule
+      this.handleObjectionVerdict('overrule');
+      break;
+      
+    case 'voting':
+      // Voting time up, count existing votes
+      this.processVotes();
+      break;
   }
+}
 
   handleObjection(objectingPlayer, objectionText) {
     if (this.gameData.phase !== 'arguing') return;

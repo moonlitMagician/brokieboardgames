@@ -14,6 +14,9 @@ function ObjectionGame({ socket, player, players }) {
   const [buzzSound] = useState(new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+H1xW8gBSuAzvLZiTYIF2m98OScTgwOUarm7K9oGwY7k9n1unEiBC59yO/eizEJGHq+8OGNOR8GXrHk7aBnIgU5ltf1w3ksBSyH0/PdrEEKGXm+8N2QMgcUZLHl9KBABRZQp+PwtmMcBjiR1/LNdSgFGXq+8N2QMgcTY7Jm9KFBBhJBnuDzv3EhBz2E0/LZiTcIGWq+8N+TOAoG'));
 
   useEffect(() => {
+    // Early return if socket or player is not available
+    if (!socket || !player) return;
+
     // Request initial game state
     socket.emit('requestObjectionState');
 
@@ -22,10 +25,17 @@ function ObjectionGame({ socket, player, players }) {
       console.log('Objection game state received:', state);
       setGameState(state);
       setTimeLeft(state.timeRemaining);
-      setShowObjectionInput(false);
-      setVoteSubmitted(false);
-      setSelectedVote('');
-      setHasVotedReroll(state.rerollVotes?.some(v => v.id === player.id) || false);
+      
+      // Reset UI state when game state changes
+      if (state.phase !== 'arguing') {
+        setShowObjectionInput(false);
+      }
+      if (state.phase !== 'voting') {
+        setVoteSubmitted(false);
+        setSelectedVote('');
+      }
+      
+      setHasVotedReroll(state.rerollVotes?.some(v => v.id === player?.id) || false);
       setRerollVoteCount({
         voters: state.rerollVotes || [],
         total: state.playerLives?.length || 0
@@ -50,19 +60,27 @@ function ObjectionGame({ socket, player, players }) {
 
     socket.on('objectionGameEnded', (result) => {
       setGameResult(result);
+      // Ensure UI knows the game is finished
+      setShowObjectionInput(false);
+      setVoteSubmitted(false);
     });
 
     return () => {
-      socket.off('objectionGameState');
-      socket.off('objectionTimerUpdate');
-      socket.off('objectionVoteUpdate');
-      socket.off('rerollVoteUpdate');
-      socket.off('playerEliminated');
-      socket.off('objectionGameEnded');
+      socket?.off('objectionGameState');
+      socket?.off('objectionTimerUpdate');
+      socket?.off('objectionVoteUpdate');
+      socket?.off('rerollVoteUpdate');
+      socket?.off('playerEliminated');
+      socket?.off('objectionGameEnded');
     };
-  }, [socket, player.id]);
+  }, [socket, player?.id]);
 
   const handleObjection = () => {
+    // Don't allow objections if game is finished or timer is at 0
+    if (!gameState || gameState.phase !== 'arguing' || timeLeft <= 0 || !player) {
+      return;
+    }
+    
     if (!objectionText.trim()) {
       alert('Please enter your objection argument');
       return;
@@ -75,24 +93,32 @@ function ObjectionGame({ socket, player, players }) {
   };
 
   const handleFinishObjection = () => {
+    if (!gameState || gameState.phase !== 'objection' || !socket) {
+      return;
+    }
     socket.emit('finishObjectionArgument');
   };
 
   const handleVote = (vote) => {
+    if (!gameState || gameState.phase !== 'voting' || !socket) {
+      return;
+    }
     socket.emit('objectionVote', { vote });
     setSelectedVote(vote);
     setVoteSubmitted(true);
   };
 
   const handleRerollVote = () => {
-    if (!hasVotedReroll) {
+    if (!hasVotedReroll && gameState?.phase === 'arguing' && socket) {
       socket.emit('rerollVote');
       setHasVotedReroll(true);
     }
   };
 
   const handleTopicToggle = (useRisque) => {
-    socket.emit('toggleRisqueTopics', { useRisque });
+    if (socket) {
+      socket.emit('toggleRisqueTopics', { useRisque });
+    }
   };
 
   const formatTime = (seconds) => {
@@ -102,21 +128,23 @@ function ObjectionGame({ socket, player, players }) {
   };
 
   const getPlayerLives = (playerId) => {
-    return gameState?.playerLives?.find(pl => pl.player.id === playerId)?.lives || 0;
+    return gameState?.playerLives?.find(pl => pl.player?.id === playerId)?.lives || 0;
   };
 
   const canObject = () => {
     return gameState?.phase === 'arguing' && 
-           gameState.currentSpeaker?.id !== player.id;
+           gameState?.currentSpeaker?.id !== player?.id &&
+           timeLeft > 0; // Can't object if time is up
   };
 
   const canVote = () => {
     return gameState?.phase === 'voting' && 
-           gameState.currentObjector?.id !== player.id; // Objector cannot vote
+           gameState?.currentObjector?.id !== player?.id &&
+           timeLeft > 0; // Can't vote if time is up
   };
 
   const renderTopicControls = () => {
-    if (gameState?.phase !== 'arguing') return null;
+    if (gameState?.phase !== 'arguing' || timeLeft <= 0) return null;
 
     return (
       <div className="topic-controls">
@@ -141,7 +169,7 @@ function ObjectionGame({ socket, player, players }) {
           )}
         </div>
 
-        {player.isHost && (
+        {player?.isHost && (
           <div className="risque-toggle">
             <label className="toggle-label">
               <input
@@ -165,6 +193,24 @@ function ObjectionGame({ socket, player, players }) {
 
     switch (gameState.phase) {
       case 'arguing':
+        // If time is up, show the winner message instead of normal arguing interface
+        if (timeLeft <= 0) {
+          return (
+            <div className="arguing-phase time-up">
+              <div className="winner-announcement">
+                🏆 <strong>{gameState.currentSpeaker?.name}</strong> wins by successfully arguing without objection!
+              </div>
+              <div className="topic-display">
+                <h3>Winning Topic:</h3>
+                <div className="topic-text">"{gameState.currentTopic}"</div>
+              </div>
+              <div className="time-up-message">
+                Time ran out! The game will end shortly...
+              </div>
+            </div>
+          );
+        }
+
         return (
           <div className="arguing-phase">
             <div className="current-argument">
@@ -178,7 +224,7 @@ function ObjectionGame({ socket, player, players }) {
                   🎤 <strong>{gameState.currentSpeaker?.name}</strong> is arguing
                 </div>
                 <div className="phase-instruction">
-                  {gameState.currentSpeaker?.id === player.id ? 
+                  {gameState.currentSpeaker?.id === player?.id ? 
                     "Make your argument! You have 2 minutes. If nobody objects, you win!" :
                     "Listen to the argument. Click 'Objection!' if you disagree."
                   }
@@ -201,7 +247,7 @@ function ObjectionGame({ socket, player, players }) {
                 </button>
               )}
 
-              {showObjectionInput && (
+              {showObjectionInput && canObject() && (
                 <div className="objection-input">
                   <h4>State your objection:</h4>
                   <textarea
@@ -247,12 +293,19 @@ function ObjectionGame({ socket, player, players }) {
             </div>
 
             <div className="objection-status">
-              {gameState.currentObjector?.id === player.id ? (
+              {gameState.currentObjector?.id === player?.id ? (
                 <div className="objector-controls">
                   <p>Make your case! Explain your objection and alternative argument.</p>
-                  <button onClick={handleFinishObjection} className="finish-objection">
-                    Finish Argument & Start Vote
-                  </button>
+                  {timeLeft > 0 && (
+                    <button onClick={handleFinishObjection} className="finish-objection">
+                      Finish Argument & Start Vote
+                    </button>
+                  )}
+                  {timeLeft <= 0 && (
+                    <div className="time-up-message">
+                      Time's up! Your objection was automatically overruled.
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p>Listen to {gameState.currentObjector?.name}'s objection argument...</p>
@@ -269,7 +322,7 @@ function ObjectionGame({ socket, player, players }) {
               <div className="vote-question">
                 Should <strong>{gameState.currentObjector?.name}</strong>'s objection be sustained?
               </div>
-              {gameState.currentObjector?.id === player.id && (
+              {gameState.currentObjector?.id === player?.id && (
                 <div className="objector-cannot-vote">
                   You cannot vote on your own objection
                 </div>
@@ -302,6 +355,8 @@ function ObjectionGame({ socket, player, players }) {
               <div className="vote-status">
                 {voteSubmitted ? (
                   <p>✓ Vote submitted! Waiting for others...</p>
+                ) : timeLeft <= 0 ? (
+                  <p>⏰ Voting time ended! Counting votes...</p>
                 ) : (
                   <p>You cannot vote on this objection</p>
                 )}
@@ -333,8 +388,8 @@ function ObjectionGame({ socket, player, players }) {
               <h4>Final Lives:</h4>
               <div className="final-lives">
                 {gameResult?.finalLives?.map(({ player: p, lives }) => (
-                  <div key={p.id} className={`final-life-count ${lives > 0 ? 'survivor' : 'eliminated'}`}>
-                    {p.name}: {lives} ❤️
+                  <div key={p?.id} className={`final-life-count ${lives > 0 ? 'survivor' : 'eliminated'}`}>
+                    {p?.name}: {lives} ❤️
                   </div>
                 ))}
               </div>
@@ -360,6 +415,17 @@ function ObjectionGame({ socket, player, players }) {
     }
   };
 
+  // Early return if required props are missing
+  if (!socket || !player) {
+    return (
+      <div className="loading-game">
+        <h3>Loading Objection!</h3>
+        <p>Connecting to game...</p>
+        <div className="loading-spinner">⚖️</div>
+      </div>
+    );
+  }
+
   if (!gameState) {
     return (
       <div className="loading-game">
@@ -376,12 +442,14 @@ function ObjectionGame({ socket, player, players }) {
         <h2>Objection!</h2>
         <div className="game-status">
           <span className="phase-indicator">
-            {gameState.phase === 'arguing' && '🎤 ARGUING'}
+            {gameState.phase === 'arguing' && (timeLeft > 0 ? '🎤 ARGUING' : '🏆 WINNER!')}
             {gameState.phase === 'objection' && '🚨 OBJECTION'}
             {gameState.phase === 'voting' && '⚖️ VOTING'}
             {gameState.phase === 'finished' && '🏁 FINISHED'}
           </span>
-          <span className="timer">⏰ {formatTime(timeLeft)}</span>
+          <span className={`timer ${timeLeft <= 10 && timeLeft > 0 ? 'urgent' : ''} ${timeLeft <= 0 ? 'finished' : ''}`}>
+            ⏰ {formatTime(timeLeft)}
+          </span>
         </div>
       </div>
 
@@ -389,8 +457,8 @@ function ObjectionGame({ socket, player, players }) {
         <h4>Player Lives</h4>
         <div className="lives-grid">
           {gameState.playerLives?.map(({ player: p, lives }) => (
-            <div key={p.id} className={`player-life ${lives <= 0 ? 'eliminated' : ''} ${p.id === player.id ? 'you' : ''}`}>
-              <span className="player-name">{p.name}</span>
+            <div key={p?.id} className={`player-life ${lives <= 0 ? 'eliminated' : ''} ${p?.id === player?.id ? 'you' : ''}`}>
+              <span className="player-name">{p?.name}</span>
               <span className="lives-count">
                 {Array.from({ length: 3 }, (_, i) => (
                   <span key={i} className={`life ${i < lives ? 'alive' : 'lost'}`}>
@@ -398,8 +466,8 @@ function ObjectionGame({ socket, player, players }) {
                   </span>
                 ))}
               </span>
-              {p.id === gameState.currentSpeaker?.id && <span className="speaking-indicator">🎤</span>}
-              {p.id === gameState.currentObjector?.id && <span className="objecting-indicator">🚨</span>}
+              {p?.id === gameState.currentSpeaker?.id && <span className="speaking-indicator">🎤</span>}
+              {p?.id === gameState.currentObjector?.id && <span className="objecting-indicator">🚨</span>}
             </div>
           ))}
         </div>
