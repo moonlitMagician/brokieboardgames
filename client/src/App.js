@@ -29,6 +29,49 @@ function App() {
   const [currentGame, setCurrentGame] = useState(null);
   const [gameData, setGameData] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const [showChangelog, setShowChangelog] = useState(false);
+
+  // Changelog data
+const changelog = [
+  {
+    version: "v1.2.0",
+    date: "2025-09-06",
+    changes: [
+      "Eliminated players can no longer object",
+      "Fixed issue where objection win state wasn’t triggering",
+      "Refinements to objection logic"
+    ]
+  },
+  {
+    version: "v1.1.0",
+    date: "2025-09-05",
+    changes: [
+      "Added more NSFW topics",
+      "Major fixes and improvements to objection system",
+      "Optimized CSS for faster performance",
+      "Refined CSS styling"
+    ]
+  },
+  {
+    version: "v1.0.2",
+    date: "2025-09-04",
+    changes: [
+      "Fixed Spyfall role logic (spy role mix-up)",
+      "Added new CSS elements for Spyfall",
+      "Fixed extra CSS issues and Spyfall voting bug",
+      "Fixed undefined 'first questioner' bug",
+      "Several general fixes and changes",
+      "Updated App.js and objection.js with improvements"
+    ]
+  },
+  {
+    version: "v1.0.1",
+    date: "2025-09-03",
+    changes: [
+      "Initial updates and groundwork for objection system"
+    ]
+  }
+];
 
   useEffect(() => {
     // Connection status listeners
@@ -147,6 +190,118 @@ function App() {
     );
   };
 
+  const renderChangelog = () => {
+    if (!showChangelog) return null;
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '30px',
+          borderRadius: '10px',
+          maxWidth: '600px',
+          maxHeight: '80vh',
+          overflow: 'auto',
+          color: '#333'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            borderBottom: '2px solid #eee',
+            paddingBottom: '10px'
+          }}>
+            <h2 style={{ margin: 0, color: '#2c3e50' }}>Changelog</h2>
+            <button
+              onClick={() => setShowChangelog(false)}
+              style={{
+                background: '#e74c3c',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                padding: '5px 10px',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              ×
+            </button>
+          </div>
+          
+          {changelog.map((release, index) => (
+            <div key={index} style={{
+              marginBottom: '25px',
+              padding: '15px',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '10px'
+              }}>
+                <h3 style={{ 
+                  margin: 0, 
+                  color: '#2c3e50',
+                  fontSize: '18px'
+                }}>
+                  {release.version}
+                </h3>
+                <span style={{
+                  color: '#6c757d',
+                  fontSize: '14px',
+                  fontStyle: 'italic'
+                }}>
+                  {release.date}
+                </span>
+              </div>
+              
+              <ul style={{
+                margin: 0,
+                paddingLeft: '20px'
+              }}>
+                {release.changes.map((change, changeIndex) => (
+                  <li key={changeIndex} style={{
+                    marginBottom: '5px',
+                    color: '#495057',
+                    lineHeight: '1.4'
+                  }}>
+                    {change}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          
+          <div style={{
+            textAlign: 'center',
+            marginTop: '20px',
+            paddingTop: '15px',
+            borderTop: '1px solid #dee2e6',
+            color: '#6c757d',
+            fontSize: '14px'
+          }}>
+            Visit the GitHub repository for complete development history
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderCurrentScreen = () => {
     switch (gameState) {
       case 'menu':
@@ -247,12 +402,43 @@ function App() {
   return (
     <div className="App">
       {renderConnectionStatus()}
+      {renderChangelog()}
       
       <header className="App-header">
         <h1>Brokie Board Games</h1>
         <h3>Created by Daniel Da Silva</h3>
-        <h5>Full Code Avaliable At - "https://github.com/moonlitMagician/brokieboardgames"</h5>
-      
+        <h5>Full Code Available At - "https://github.com/moonlitMagician/brokieboardgames"</h5>
+        
+        {/* Changelog Button */}
+        <button
+          onClick={() => setShowChangelog(true)}
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            backgroundColor: '#3498db',
+            color: 'white',
+            border: 'none',
+            borderRadius: '25px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+            transition: 'all 0.3s ease',
+            zIndex: 1000
+          }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#2980b9';
+            e.target.style.transform = 'translateY(-2px)';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = '#3498db';
+            e.target.style.transform = 'translateY(0)';
+          }}
+        >
+          📋 Changelog
+        </button>
         
         {/* Debug info - only show in development */}
         {process.env.NODE_ENV === 'development' && (
