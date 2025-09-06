@@ -108,12 +108,14 @@ function ObjectionGame({ socket, player, players }) {
     setVoteSubmitted(true);
   };
 
-  const handleRerollVote = () => {
-    if (!hasVotedReroll && gameState?.phase === 'arguing' && socket) {
-      socket.emit('rerollVote');
-      setHasVotedReroll(true);
-    }
-  };
+const handleRerollVote = () => {
+  const isPlayerAlive = gameState?.alivePlayers?.some(p => p.id === player?.id);
+  
+  if (!hasVotedReroll && gameState?.phase === 'arguing' && socket && isPlayerAlive) {
+    socket.emit('rerollVote');
+    setHasVotedReroll(true);
+  }
+};
 
   const handleTopicToggle = (useRisque) => {
     if (socket) {
@@ -132,9 +134,11 @@ function ObjectionGame({ socket, player, players }) {
   };
 
   const canObject = () => {
+    const isPlayerAlive = gameState?.alivePlayers?.some(p => p.id === player?.id);
     return gameState?.phase === 'arguing' && 
            gameState?.currentSpeaker?.id !== player?.id &&
-           timeLeft > 0; // Can't object if time is up
+           timeLeft > 0 &&
+           isPlayerAlive; // Can't object if time is up
   };
 
   const canVote = () => {
