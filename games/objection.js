@@ -56,9 +56,6 @@ class ObjectionGame {
       "Your reflection is just a stranger who copies you"
     ];
 
-    //THESE TOPICS ARE DESIGNED TO BE WRONG AND MORALLY DUBIOUS
-    //the point of this toggle is to make people try to argue topics they would naturally disagree with
-    //reccomended only for people 18+ and these debates SHOULD NOT be taken seriously
     this.risqueTopics = [
       "Cancel culture has gone too far",
       "Gay sex is better than straight sex",
@@ -187,6 +184,7 @@ class ObjectionGame {
     switch (this.gameData.phase) {
       case 'arguing':
         // Speaker wins the game when time runs out
+        this.addToHistory(`${this.gameData.currentSpeaker.name} wins by successfully arguing for 2 minutes without objection!`);
         this.endGame(this.gameData.currentSpeaker);
         break;
         
