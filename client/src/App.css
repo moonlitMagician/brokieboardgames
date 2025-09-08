@@ -2187,25 +2187,24 @@
   }
 }
 
-/* Voting Interface Styles */
+/* Update the existing voting styles to match your theme better */
+
+/* Voting Interface Styles - Enhanced for your dark theme */
 .game-voting {
   margin-top: 20px;
-  padding: 20px;
+  padding: 25px;
   border: 2px solid #3498db;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.voting-header {
-  text-align: center;
-  margin-bottom: 20px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  box-shadow: 0 8px 32px rgba(52, 152, 219, 0.3);
+  color: white;
 }
 
 .voting-header h3 {
-  color: #2c3e50;
+  color: #ecf0f1;
   margin-bottom: 15px;
   font-size: 24px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .voting-timer {
@@ -2213,26 +2212,22 @@
   font-size: 18px;
   font-weight: bold;
   margin: 10px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .voting-progress {
-  color: #27ae60;
+  color: #2ecc71;
   font-weight: bold;
   font-size: 16px;
-}
-
-.voting-games {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 15px;
-  margin: 20px 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .vote-game-button {
-  padding: 15px;
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
-  background: white;
+  padding: 20px;
+  border: 2px solid #34495e;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #34495e, #2c3e50);
+  color: white;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: left;
@@ -2240,42 +2235,39 @@
   min-height: 140px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .vote-game-button:hover:not(:disabled) {
   border-color: #3498db;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(52, 152, 219, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
+  background: linear-gradient(135deg, #3498db, #2980b9);
 }
 
 .vote-game-button.selected {
-  border-color: #27ae60;
-  background: linear-gradient(135deg, #d5f4e6, #a8e6cf);
-  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
-}
-
-.vote-game-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+  border-color: #2ecc71;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  box-shadow: 0 6px 20px rgba(46, 204, 113, 0.5);
+  transform: translateY(-2px);
 }
 
 .vote-game-button .game-title {
   font-size: 18px;
   font-weight: bold;
-  color: #2c3e50;
+  color: inherit;
   margin-bottom: 8px;
 }
 
 .vote-game-button .game-description {
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
   margin-bottom: 8px;
   line-height: 1.4;
 }
 
 .vote-game-button .game-players {
-  color: #495057;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 12px;
   font-weight: bold;
   margin-bottom: 12px;
@@ -2284,67 +2276,52 @@
 .vote-count {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   font-weight: bold;
-  color: #3498db;
+  color: #f1c40f;
   font-size: 14px;
 }
 
 .your-vote {
-  color: #27ae60;
+  color: #2ecc71;
   font-size: 12px;
-}
-
-.voting-controls {
-  text-align: center;
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #dee2e6;
+  font-weight: bold;
 }
 
 .end-voting-button {
-  background: #e74c3c;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
+  padding: 15px 30px;
+  border-radius: 25px;
   cursor: pointer;
   font-weight: bold;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
 }
 
 .end-voting-button:hover {
-  background: #c0392b;
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(231, 76, 60, 0.6);
 }
 
-/* Voting Results Overlay */
-.voting-results-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-  animation: fadeIn 0.3s ease;
-}
-
+/* Voting Results Overlay - Updated for dark theme */
 .voting-results {
-  background: white;
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  color: white;
   padding: 30px;
   border-radius: 15px;
   text-align: center;
   max-width: 500px;
   margin: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   animation: slideIn 0.3s ease;
+  border: 2px solid #3498db;
 }
 
 .voting-results h3 {
-  color: #2c3e50;
+  color: #ecf0f1;
   margin-bottom: 20px;
   font-size: 24px;
 }
@@ -2352,33 +2329,23 @@
 .winner-announcement {
   margin: 20px 0;
   padding: 20px;
-  background: linear-gradient(135deg, #d5f4e6, #a8e6cf);
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
   border-radius: 10px;
-  border: 2px solid #27ae60;
+  border: 2px solid #2ecc71;
 }
 
 .winner-game {
   font-size: 26px;
-  color: #27ae60;
+  color: white;
   margin-bottom: 10px;
   font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .tie-message {
   font-style: italic;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 14px;
-}
-
-.vote-breakdown {
-  margin: 20px 0;
-  text-align: left;
-}
-
-.vote-breakdown h4 {
-  text-align: center;
-  color: #2c3e50;
-  margin-bottom: 15px;
 }
 
 .vote-result {
@@ -2388,214 +2355,87 @@
   padding: 10px 15px;
   margin: 5px 0;
   border-radius: 6px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .vote-result.winner {
-  background: linear-gradient(135deg, #d5f4e6, #a8e6cf);
-  border-color: #27ae60;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  border-color: #2ecc71;
   font-weight: bold;
-}
-
-.game-name {
-  font-size: 16px;
-}
-
-.vote-count {
-  font-size: 14px;
-  font-weight: bold;
-  color: #495057;
 }
 
 .auto-start-message {
   margin-top: 20px;
   padding: 15px;
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  border: 1px solid #f39c12;
   border-radius: 6px;
-  color: #856404;
+  color: white;
   font-weight: bold;
 }
 
-/* Host Options Styling */
-.host-options {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  margin-top: 20px;
-}
-
+/* Host Options Styling - Updated for dark theme */
 .selection-mode {
   text-align: center;
   padding: 20px;
-  background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+  background: linear-gradient(135deg, #34495e, #2c3e50);
   border-radius: 10px;
   border: 2px solid #3498db;
 }
 
 .start-voting-button {
-  padding: 15px 30px;
+  padding: 18px 36px;
   background: linear-gradient(135deg, #3498db, #2980b9);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 25px;
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
 }
 
 .start-voting-button:hover:not(:disabled) {
   background: linear-gradient(135deg, #2980b9, #1f618d);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
-}
-
-.start-voting-button:disabled {
-  background: #bdc3c7;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.or-divider {
-  text-align: center;
-  font-weight: bold;
-  color: #6c757d;
-  margin: 20px 0;
-  position: relative;
-  font-size: 18px;
-}
-
-.or-divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #dee2e6, transparent);
-  z-index: 1;
-}
-
-.or-divider::after {
-  content: 'OR';
-  background: white;
-  padding: 0 20px;
-  position: relative;
-  z-index: 2;
-  color: #6c757d;
-  font-weight: bold;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(52, 152, 219, 0.6);
 }
 
 .direct-selection {
   padding: 20px;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #34495e, #2c3e50);
   border-radius: 10px;
-  border: 2px solid #dee2e6;
+  border: 2px solid #95a5a6;
 }
 
 .mode-description {
   margin: 10px 0;
-  color: #6c757d;
+  color: #bdc3c7;
   font-style: italic;
   text-align: center;
 }
 
-.direct-selection .mode-description {
-  text-align: center;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-/* Player indicators */
+/* Player indicators - Updated */
 .voted-indicator {
-  color: #27ae60;
+  color: #2ecc71;
   font-weight: bold;
   margin-left: 10px;
   font-size: 12px;
-  background: #d5f4e6;
-  padding: 2px 8px;
+  background: rgba(46, 204, 113, 0.2);
+  padding: 3px 8px;
   border-radius: 12px;
+  border: 1px solid #2ecc71;
 }
 
-/* Enhanced game buttons for direct selection */
-.direct-selection .games {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
+/* OR divider - Updated for dark theme */
+.or-divider::after {
+  background: #2c3e50;
+  color: #bdc3c7;
+  font-weight: bold;
 }
 
-.direct-selection .game-button {
-  background: white;
-  border: 2px solid #dee2e6;
-  transition: all 0.3s ease;
-}
-
-.direct-selection .game-button:hover:not(:disabled) {
-  border-color: #3498db;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideIn {
-  from { 
-    opacity: 0;
-    transform: translateY(-20px) scale(0.9);
-  }
-  to { 
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .voting-games {
-    grid-template-columns: 1fr;
-  }
-  
-  .host-options {
-    gap: 20px;
-  }
-  
-  .voting-results {
-    margin: 10px;
-    padding: 20px;
-  }
-  
-  .winner-game {
-    font-size: 22px;
-  }
-  
-  .vote-game-button {
-    min-height: 120px;
-  }
-}
-
-@media (max-width: 480px) {
-  .game-voting {
-    padding: 15px;
-  }
-  
-  .voting-header h3 {
-    font-size: 20px;
-  }
-  
-  .start-voting-button {
-    padding: 12px 24px;
-    font-size: 14px;
-  }
-  
-  .direct-selection .games {
-    grid-template-columns: 1fr;
-  }
+.or-divider::before {
+  background: linear-gradient(90deg, transparent, #95a5a6, transparent);
 }
