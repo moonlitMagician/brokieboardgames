@@ -19,6 +19,7 @@ function Lobby({ lobbyCode, players, player, onStartGame, socket }) {
 
     // Listen for voting events
     socket.on('gameVotingStarted', (data) => {
+      console.log('Voting started:', data);
       setVotingState({
         isVoting: true,
         availableGames: data.availableGames,
@@ -35,6 +36,7 @@ function Lobby({ lobbyCode, players, player, onStartGame, socket }) {
     });
 
     socket.on('gameVoteUpdate', (data) => {
+      console.log('Vote update received:', data);
       setVotingState(prev => ({
         ...prev,
         votes: data.votes,
@@ -45,6 +47,7 @@ function Lobby({ lobbyCode, players, player, onStartGame, socket }) {
     });
 
     socket.on('gameVotingEnded', (data) => {
+      console.log('Voting ended:', data);
       setVotingState(prev => ({ ...prev, isVoting: false }));
       setGameResult(data);
       setShowResults(true);
@@ -78,23 +81,27 @@ function Lobby({ lobbyCode, players, player, onStartGame, socket }) {
 
   const handleStartVoting = () => {
     if (socket) {
+      console.log('Starting voting...');
       socket.emit('startGameVoting');
     }
   };
 
   const handleVoteForGame = (gameType) => {
-    if (socket && votingState.isVoting) {
+    if (socket && votingState.isVoting && !votingState.yourVote) {
+      console.log('Voting for:', gameType);
       socket.emit('voteForGame', { gameType });
     }
   };
 
   const handleEndVoting = () => {
     if (socket) {
+      console.log('Ending voting early...');
       socket.emit('endGameVoting');
     }
   };
 
   const handleDirectGameStart = (gameType) => {
+    console.log('Starting game directly:', gameType);
     if (onStartGame) {
       onStartGame(gameType);
     }
@@ -212,13 +219,14 @@ function Lobby({ lobbyCode, players, player, onStartGame, socket }) {
               const info = getGameInfo(gameType);
               const votes = votingState.votes[gameType] || 0;
               const isSelected = votingState.yourVote === gameType;
+              const hasVoted = votingState.yourVote !== null;
               
               return (
                 <button
                   key={gameType}
                   onClick={() => handleVoteForGame(gameType)}
                   className={`vote-game-button ${isSelected ? 'selected' : ''}`}
-                  disabled={votingState.yourVote !== null}
+                  disabled={hasVoted}
                 >
                   <div className="game-title">{info.emoji} {info.title}</div>
                   <div className="game-description">{info.description}</div>

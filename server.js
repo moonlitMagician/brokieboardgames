@@ -271,7 +271,7 @@ function processGameVotes(lobbyCode) {
   }
 }
 
-// Update vote counts and broadcast
+// FIXED: Update vote counts and broadcast with individual player votes
 function updateVoteCounts(lobbyCode) {
   try {
     const lobby = lobbies.get(lobbyCode);
@@ -285,11 +285,17 @@ function updateVoteCounts(lobbyCode) {
       voteCounts[vote]++;
     }
     
-    // Broadcast updated vote counts
-    io.to(lobbyCode).emit('gameVoteUpdate', {
-      votes: voteCounts,
-      totalVotes: lobby.gameVotes.size,
-      totalPlayers: lobby.players.length
+    // Send personalized updates to each player
+    lobby.players.forEach(player => {
+      const socket = io.sockets.sockets.get(player.id);
+      if (socket) {
+        socket.emit('gameVoteUpdate', {
+          votes: voteCounts,
+          totalVotes: lobby.gameVotes.size,
+          totalPlayers: lobby.players.length,
+          yourVote: lobby.gameVotes.get(player.id) || null // Individual vote tracking
+        });
+      }
     });
     
     // Check if everyone has voted
@@ -528,7 +534,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Cast vote for game
+  // FIXED: Cast vote for game with proper individual tracking
   socket.on('voteForGame', ({ gameType }) => {
     try {
       const player = players.get(socket.id);
@@ -548,7 +554,7 @@ io.on('connection', (socket) => {
       // Record the vote
       lobby.gameVotes.set(socket.id, gameType);
       
-      // Update and broadcast vote counts
+      // Update and broadcast vote counts to everyone (including individual votes)
       updateVoteCounts(player.lobbyCode);
       
       console.log(`${player.name} voted for ${gameType} in lobby ${player.lobbyCode}`);
