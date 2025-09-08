@@ -11,7 +11,7 @@ import ObjectionGame from './components/ObjectionGame';
 import CodenamesGame from './components/CodenamesGame';
 
 // Environment-aware socket connection
-const SOCKET_URL = process.env.NODE_ENV === 'production' 
+const SOCKET_URL = process.env.NODE_ENV === 'production'
   ? window.location.origin
   : 'http://localhost:3001';
 
@@ -32,46 +32,46 @@ function App() {
   const [showChangelog, setShowChangelog] = useState(false);
 
   // Changelog data
-const changelog = [
-  {
-    version: "v1.2.0",
-    date: "2025-09-06",
-    changes: [
-      "Eliminated players can no longer object",
-      "Fixed issue where objection win state wasn’t triggering",
-      "Refinements to objection logic"
-    ]
-  },
-  {
-    version: "v1.1.0",
-    date: "2025-09-05",
-    changes: [
-      "Added more NSFW topics",
-      "Major fixes and improvements to objection system",
-      "Optimized CSS for faster performance",
-      "Refined CSS styling"
-    ]
-  },
-  {
-    version: "v1.0.2",
-    date: "2025-09-04",
-    changes: [
-      "Fixed Spyfall role logic (spy role mix-up)",
-      "Added new CSS elements for Spyfall",
-      "Fixed extra CSS issues and Spyfall voting bug",
-      "Fixed undefined 'first questioner' bug",
-      "Several general fixes and changes",
-      "Updated App.js and objection.js with improvements"
-    ]
-  },
-  {
-    version: "v1.0.1",
-    date: "2025-09-03",
-    changes: [
-      "Initial updates and groundwork for objection system"
-    ]
-  }
-];
+  const changelog = [
+    {
+      version: "v1.2.0",
+      date: "2025-09-06",
+      changes: [
+        "Eliminated players can no longer object",
+        "Fixed issue where objection win state wasn’t triggering",
+        "Refinements to objection logic"
+      ]
+    },
+    {
+      version: "v1.1.0",
+      date: "2025-09-05",
+      changes: [
+        "Added more NSFW topics",
+        "Major fixes and improvements to objection system",
+        "Optimized CSS for faster performance",
+        "Refined CSS styling"
+      ]
+    },
+    {
+      version: "v1.0.2",
+      date: "2025-09-04",
+      changes: [
+        "Fixed Spyfall role logic (spy role mix-up)",
+        "Added new CSS elements for Spyfall",
+        "Fixed extra CSS issues and Spyfall voting bug",
+        "Fixed undefined 'first questioner' bug",
+        "Several general fixes and changes",
+        "Updated App.js and objection.js with improvements"
+      ]
+    },
+    {
+      version: "v1.0.1",
+      date: "2025-09-03",
+      changes: [
+        "Initial updates and groundwork for objection system"
+      ]
+    }
+  ];
 
   useEffect(() => {
     // Connection status listeners
@@ -148,13 +148,13 @@ const changelog = [
     console.log('Starting game:', gameType);
     console.log('Current player:', player);
     console.log('Is host:', player?.isHost);
-    
+
     if (!player?.isHost) {
       console.error('Only host can start games');
       alert('Only the host can start games');
       return;
     }
-    
+
     socket.emit('startGame', { gameType });
   };
 
@@ -170,7 +170,7 @@ const changelog = [
   // Show connection status
   const renderConnectionStatus = () => {
     if (connectionStatus === 'connected') return null;
-    
+
     return (
       <div style={{
         position: 'fixed',
@@ -239,7 +239,7 @@ const changelog = [
               ×
             </button>
           </div>
-          
+
           {changelog.map((release, index) => (
             <div key={index} style={{
               marginBottom: '25px',
@@ -254,8 +254,8 @@ const changelog = [
                 alignItems: 'center',
                 marginBottom: '10px'
               }}>
-                <h3 style={{ 
-                  margin: 0, 
+                <h3 style={{
+                  margin: 0,
                   color: '#2c3e50',
                   fontSize: '18px'
                 }}>
@@ -269,7 +269,7 @@ const changelog = [
                   {release.date}
                 </span>
               </div>
-              
+
               <ul style={{
                 margin: 0,
                 paddingLeft: '20px'
@@ -286,7 +286,7 @@ const changelog = [
               </ul>
             </div>
           ))}
-          
+
           <div style={{
             textAlign: 'center',
             marginTop: '20px',
@@ -306,15 +306,16 @@ const changelog = [
     switch (gameState) {
       case 'menu':
         return (
-          <JoinLobby 
+          <JoinLobby
             onCreateLobby={createLobby}
             onJoinLobby={joinLobby}
           />
         );
+      // In App.js, update the lobby case in renderCurrentScreen():
       case 'lobby':
         return (
           <div>
-            <button 
+            <button
               onClick={goBackToMenu}
               style={{
                 position: 'absolute',
@@ -335,13 +336,14 @@ const changelog = [
               players={players}
               player={player}
               onStartGame={startGame}
+              socket={socket}  // Add this line
             />
           </div>
         );
       case 'playing':
         return (
           <div>
-            <button 
+            <button
               onClick={goBackToMenu}
               style={{
                 position: 'absolute',
@@ -403,12 +405,12 @@ const changelog = [
     <div className="App">
       {renderConnectionStatus()}
       {renderChangelog()}
-      
+
       <header className="App-header">
         <h1>Brokie Board Games</h1>
         <h3>Created by Daniel Da Silva</h3>
         <h5>Full Code Available At - "https://github.com/moonlitMagician/brokieboardgames"</h5>
-        
+
         {/* Changelog Button */}
         <button
           onClick={() => setShowChangelog(true)}
@@ -439,7 +441,7 @@ const changelog = [
         >
           📋 Changelog
         </button>
-        
+
         {/* Debug info - only show in development */}
         {process.env.NODE_ENV === 'development' && (
           <div style={{
@@ -454,17 +456,17 @@ const changelog = [
             maxWidth: '200px',
             zIndex: 1000
           }}>
-            <strong>Debug Info:</strong><br/>
-            Connection: {connectionStatus}<br/>
-            State: {gameState}<br/>
-            Player: {player?.name}<br/>
-            Is Host: {player?.isHost ? 'YES' : 'NO'}<br/>
-            Lobby: {lobbyCode}<br/>
-            Players: {players.length}<br/>
+            <strong>Debug Info:</strong><br />
+            Connection: {connectionStatus}<br />
+            State: {gameState}<br />
+            Player: {player?.name}<br />
+            Is Host: {player?.isHost ? 'YES' : 'NO'}<br />
+            Lobby: {lobbyCode}<br />
+            Players: {players.length}<br />
             Game: {currentGame || 'None'}
           </div>
         )}
-        
+
         {renderCurrentScreen()}
       </header>
     </div>
