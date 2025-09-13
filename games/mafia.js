@@ -3,7 +3,6 @@ class MafiaGame {
   constructor(lobby, io) {
     this.lobby = lobby;
     this.io = io;
-    //testing github desktop
     this.gameData = {
       phase: 'night', // night, day, voting, results
       dayNumber: 1,
@@ -13,7 +12,7 @@ class MafiaGame {
       deadPlayers: [],
       roles: new Map(), // playerId -> role
       gameStartTime: Date.now(),
-      timer: 120, // 2 minutes per phase
+      timer: 90, // 1 1/2 minutes per phase
       nightResults: {
         killed: null,
         saved: null,
@@ -30,7 +29,7 @@ class MafiaGame {
     
     let mafia = Math.floor(playerCount / 3); // 1 mafia per 3 players
     let detective = 1;
-    let doctor = playerCount >= 6 ? 1 : 0; // Doctor only with 6+ players
+    let doctor = 1 // doctor always spawns
     let villagers = playerCount - mafia - detective - doctor;
 
     return {
